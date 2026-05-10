@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f5f7" />
+    <title>Absensi Apel Pagi BPAD Provinsi NTT</title>
+    <link rel="stylesheet" href="style.css?v=20260509-8" />
+    <script>
+      document.addEventListener(
+        "submit",
+        function (event) {
+          if (event.target && event.target.id === "loginForm") {
+            event.preventDefault();
+          }
+        },
+        true
+      );
+    </script>
+    <script defer src="data.js?v=20260510-1"></script>
+    <script defer src="utils.js?v=20260510-1"></script>
+    <script defer src="reports.js?v=20260510-1"></script>
+    <script defer src="supabase.local.js?v=20260510-1"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script defer src="supabase-sync.js?v=20260510-4"></script>
+    <script defer src="app.js?v=20260510-4"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  </head>
+  <body>
+    <section id="loginScreen" class="auth-screen">
+      <div class="auth-card">
+        <div class="logo-orb">
+          <img src="logobaru.png" alt="Logo BPAD Provinsi NTT" onerror="this.style.display='none'" />
+        </div>
+        <p class="eyebrow">BPAD Provinsi NTT</p>
+        <h1>Absensi Apel Pagi</h1>
+        <p class="auth-copy">
+          Rekap kehadiran pegawai harian yang cepat, ringan, dan siap dipakai dari HP.
+        </p>
+
+        <form id="loginForm" class="login-form" autocomplete="on">
+          <label for="adminName">Akun bidang</label>
+          <select id="adminName" name="adminName" autocomplete="username" required>
+            <option value="">Pilih akun bidang...</option>
+            <option value="BADAN PENDAPATAN DAN ASET DAERAH">BADAN PENDAPATAN DAN ASET DAERAH</option>
+            <option value="SEKRETARIAT">SEKRETARIAT</option>
+            <option value="PENDAPATAN 1">PENDAPATAN 1</option>
+            <option value="PENDAPATAN 2">PENDAPATAN 2</option>
+            <option value="ASET 1">ASET 1</option>
+            <option value="ASET 2">ASET 2</option>
+          </select>
+
+          <label for="pinInput">PIN</label>
+          <input id="pinInput" name="pinInput" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Masukkan PIN" required />
+
+          <button class="primary-btn" type="submit">Masuk</button>
+          <p class="hint">Gunakan akun bidang resmi.</p>
+          <button id="resetPinBtn" class="link-btn" type="button">Reset PIN</button>
+          <p id="loginError" class="form-error" role="alert"></p>
+        </form>
+      </div>
+    </section>
+
+    <div id="appShell" class="app-shell hidden">
+      <header class="app-header">
+        <div class="brand-block">
+          <div class="header-logo">
+            <img src="logobaru.png" alt="Logo BPAD Provinsi NTT" onerror="this.style.display='none'" />
+          </div>
+          <div>
+            <p class="eyebrow">Aplikasi Internal</p>
+            <h1>Absensi Apel Pagi</h1>
+            <p id="headerMeta" class="header-meta"></p>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button id="changePinBtn" class="ghost-btn" type="button">Ganti PIN</button>
+          <button id="logoutBtn" class="ghost-btn danger" type="button">Keluar</button>
+        </div>
+      </header>
+
+      <nav class="tab-bar" aria-label="Navigasi aplikasi">
+        <button class="tab-btn active" type="button" data-tab="attendance" aria-selected="true">Absensi</button>
+        <button class="tab-btn" type="button" data-tab="daily" aria-selected="false">Rekap Harian</button>
+        <button class="tab-btn" type="button" data-tab="monthly" aria-selected="false">Rekap Bulanan</button>
+        <button class="tab-btn" type="button" data-tab="history" aria-selected="false">Riwayat</button>
+      </nav>
+
+      <main>
+        <section id="attendanceView" class="view-panel">
+          <div class="panel-card hero-card">
+            <div>
+              <p class="eyebrow">Input Harian</p>
+              <h2>Catat kehadiran apel</h2>
+              <p class="muted">Tekan Mulai Absen untuk membuat semua pegawai Hadir, lalu ubah status yang berbeda.</p>
+            </div>
+            <div class="date-stack">
+              <label for="attendanceDate">Tanggal</label>
+              <input id="attendanceDate" type="date" />
+            </div>
+          </div>
+
+          <div class="quick-actions">
+            <button id="startAttendanceBtn" class="primary-btn" type="button">Mulai Absen</button>
+            <button id="saveReportBtn" class="secondary-btn" type="button">Simpan Laporan Harian</button>
+            <button id="deleteDateDataBtn" class="ghost-btn danger" type="button">Hapus Data Tanggal Ini</button>
+          </div>
+
+          <div class="panel-card">
+            <div class="card-title-row">
+              <h3>Status Submit 5 Bidang</h3>
+              <span class="pill">Tanggal aktif</span>
+            </div>
+            <div id="scopeSubmitStatus" class="status-list"></div>
+          </div>
+
+          <div id="attendanceSummary" class="summary-grid"></div>
+
+          <div class="filter-card">
+            <div class="search-wrap">
+              <label for="searchInput">Cari nama</label>
+              <input id="searchInput" type="search" placeholder="Ketik nama pegawai..." />
+            </div>
+            <div>
+              <label for="fieldFilter">Bidang</label>
+              <select id="fieldFilter"></select>
+            </div>
+          </div>
+
+          <div id="employeeList" class="employee-list"></div>
+        </section>
+
+        <section id="dailyView" class="view-panel hidden">
+          <div class="panel-card section-heading">
+            <div>
+              <p class="eyebrow">Rekap Harian</p>
+              <h2 id="dailyTitle">Ringkasan Hari Ini</h2>
+              <p id="dailyMeta" class="muted"></p>
+            </div>
+            <div class="export-actions">
+              <button id="exportDailyExcelBtn" class="secondary-btn" type="button">Export Excel</button>
+              <button id="exportDailyPdfBtn" class="secondary-btn" type="button">Export PDF</button>
+            </div>
+          </div>
+
+          <div id="dailySummary" class="summary-grid"></div>
+          <div class="panel-card">
+            <div class="card-title-row">
+              <h3>Tidak hadir dan catatan</h3>
+              <span id="dailyNoteCount" class="pill"></span>
+            </div>
+            <div id="dailyAbsentList" class="status-list"></div>
+          </div>
+        </section>
+
+        <section id="monthlyView" class="view-panel hidden">
+          <div class="panel-card section-heading">
+            <div>
+              <p class="eyebrow">Rekap Bulanan</p>
+              <h2>Rekap per pegawai</h2>
+              <p id="monthlyMeta" class="muted"></p>
+            </div>
+            <div class="date-stack compact">
+              <label for="monthlyInput">Bulan</label>
+              <input id="monthlyInput" type="month" />
+            </div>
+          </div>
+
+          <div class="export-actions sticky-actions">
+            <button id="exportMonthlyExcelBtn" class="secondary-btn" type="button">Export Excel</button>
+            <button id="exportMonthlyPdfBtn" class="secondary-btn" type="button">Export PDF</button>
+          </div>
+
+          <div class="table-card">
+            <div class="table-scroll">
+              <table id="monthlyTable">
+                <thead></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="historyView" class="view-panel hidden">
+          <div class="panel-card section-heading">
+            <div>
+              <p class="eyebrow">Riwayat Harian</p>
+              <h2>Laporan tersimpan</h2>
+              <p class="muted">Laporan tersimpan di perangkat ini dan bisa disinkronkan ke Supabase.</p>
+            </div>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

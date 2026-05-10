@@ -1,0 +1,10 @@
+# Local runtime secrets / env
+.env
+.env.*
+!.env.example
+supabase.local.js
+supabase.local.json
+
+# OS/editor
+.DS_Store
+.vscode/
