@@ -1,7 +1,7 @@
 (function () {
   const DEFAULT_CONFIG = {
-    url: "",
-    anonKey: ""
+    url: "https://ndnvmtilzzsbacncbiqi.supabase.co",
+    anonKey: "sb_publishable_yXhpaLAuolFB9IU7MFJd8g_W_0hDQcP"
   };
 
   const CONFIG_KEYS = {
