@@ -45,3 +45,10 @@ Langkah:
 Catatan:
 - Scheduler GitHub Actions berjalan di branch default.
 - Kalau repo lama tidak ada aktivitas, GitHub bisa menonaktifkan scheduled workflow; sesekali cek tab Actions.
+
+## 6) Supabase saat deploy GitHub Pages
+Agar aplikasi deployed bisa menulis ke database, set secret ini di GitHub repo:
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY` (publishable/anon key, bukan service role)
+
+Workflow `Deploy GitHub Pages` akan membuat `supabase.local.js` otomatis dari secret tersebut saat build.

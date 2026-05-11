@@ -26,6 +26,9 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Build static artifact
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           mkdir -p site
 
@@ -40,10 +43,20 @@ jobs:
           if [ -f logobaru.png ]; then cp -f logobaru.png site/; fi
           if [ -f logontt.png ]; then cp -f logontt.png site/; fi
 
-          # Optional local runtime config file to prevent 404 on Pages.
-          cat > site/supabase.local.js <<'EOF'
+          # Build runtime config for GitHub Pages from repository secrets.
+          if [ -n "${SUPABASE_URL}" ] && [ -n "${SUPABASE_ANON_KEY}" ]; then
+            cat > site/supabase.local.js <<EOF
+          window.__BPAD_SUPABASE_CONFIG = {
+            url: "${SUPABASE_URL}",
+            anonKey: "${SUPABASE_ANON_KEY}"
+          };
+          EOF
+          else
+            cat > site/supabase.local.js <<'EOF'
           window.__BPAD_SUPABASE_CONFIG = window.__BPAD_SUPABASE_CONFIG || {};
           EOF
+            echo "WARNING: SUPABASE_URL or SUPABASE_ANON_KEY secret is missing."
+          fi
 
           touch site/.nojekyll
 
