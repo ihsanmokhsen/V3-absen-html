@@ -44,19 +44,19 @@ jobs:
           if [ -f logontt.png ]; then cp -f logontt.png site/; fi
 
           # Build runtime config for GitHub Pages from repository secrets.
-          if [ -n "${SUPABASE_URL}" ] && [ -n "${SUPABASE_ANON_KEY}" ]; then
-            cat > site/supabase.local.js <<EOF
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_ANON_KEY}" ]; then
+            echo "ERROR: Missing required GitHub Secrets for frontend deploy:"
+            echo "- SUPABASE_URL"
+            echo "- SUPABASE_ANON_KEY (publishable key)"
+            exit 1
+          fi
+
+          cat > site/supabase.local.js <<EOF
           window.__BPAD_SUPABASE_CONFIG = {
             url: "${SUPABASE_URL}",
             anonKey: "${SUPABASE_ANON_KEY}"
           };
           EOF
-          else
-            cat > site/supabase.local.js <<'EOF'
-          window.__BPAD_SUPABASE_CONFIG = window.__BPAD_SUPABASE_CONFIG || {};
-          EOF
-            echo "WARNING: SUPABASE_URL or SUPABASE_ANON_KEY secret is missing."
-          fi
 
           touch site/.nojekyll
 

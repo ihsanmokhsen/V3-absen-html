@@ -52,3 +52,4 @@ Agar aplikasi deployed bisa menulis ke database, set secret ini di GitHub repo:
 - `SUPABASE_ANON_KEY` (publishable/anon key, bukan service role)
 
 Workflow `Deploy GitHub Pages` akan membuat `supabase.local.js` otomatis dari secret tersebut saat build.
+Jika secret belum lengkap, workflow sekarang akan `fail` agar tidak sukses palsu dengan config kosong.
