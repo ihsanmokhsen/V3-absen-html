@@ -121,7 +121,7 @@
     const supabase = getClient();
     if (!supabase) return { ok: false, error: "Supabase belum dikonfigurasi." };
 
-    const { error } = await supabase.from("daily_reports").select("date", { head: true, count: "exact" }).limit(1);
+    const { error } = await supabase.from("absen_daily_reports").select("date", { head: true, count: "exact" }).limit(1);
     if (error) return { ok: false, error: error.message };
     return { ok: true };
   }
@@ -139,7 +139,7 @@
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await supabase.from("attendance_records").upsert(payload, { onConflict: "date,scope" });
+    const { error } = await supabase.from("absen_attendance_records").upsert(payload, { onConflict: "date,scope" });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
   }
@@ -159,7 +159,7 @@
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await supabase.from("daily_reports").upsert(payload, { onConflict: "date,scope" });
+    const { error } = await supabase.from("absen_daily_reports").upsert(payload, { onConflict: "date,scope" });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
   }
@@ -168,10 +168,10 @@
     const supabase = getClient();
     if (!supabase) return { ok: false, skipped: true, error: "Supabase belum dikonfigurasi." };
 
-    const { error: reportError } = await supabase.from("daily_reports").delete().eq("date", date).eq("scope", scope);
+    const { error: reportError } = await supabase.from("absen_daily_reports").delete().eq("date", date).eq("scope", scope);
     if (reportError) return { ok: false, error: reportError.message };
 
-    const { error: attendanceError } = await supabase.from("attendance_records").delete().eq("date", date).eq("scope", scope);
+    const { error: attendanceError } = await supabase.from("absen_attendance_records").delete().eq("date", date).eq("scope", scope);
     if (attendanceError) return { ok: false, error: attendanceError.message };
 
     return { ok: true };
@@ -181,10 +181,10 @@
     const supabase = getClient();
     if (!supabase) return { ok: false, skipped: true, attendances: [], reports: [] };
 
-    const attendanceQuery = await supabase.from("attendance_records").select("*").eq("date", date);
+    const attendanceQuery = await supabase.from("absen_attendance_records").select("*").eq("date", date);
     if (attendanceQuery.error) return { ok: false, error: attendanceQuery.error.message, attendances: [], reports: [] };
 
-    const reportQuery = await supabase.from("daily_reports").select("*").eq("date", date);
+    const reportQuery = await supabase.from("absen_daily_reports").select("*").eq("date", date);
     if (reportQuery.error) return { ok: false, error: reportQuery.error.message, attendances: [], reports: [] };
 
     return {
@@ -198,7 +198,7 @@
     const supabase = getClient();
     if (!supabase) return { ok: false, skipped: true, reports: [] };
 
-    let query = supabase.from("daily_reports").select("*").order("date", { ascending: false });
+    let query = supabase.from("absen_daily_reports").select("*").order("date", { ascending: false });
     if (scope && scope !== "ALL") {
       query = query.in("scope", [scope, "ALL"]);
     }
@@ -224,7 +224,7 @@
     const toDate = `${yearText}-${monthText}-${String(monthEndDate).padStart(2, "0")}`;
 
     let query = supabase
-      .from("attendance_records")
+      .from("absen_attendance_records")
       .select("*")
       .gte("date", fromDate)
       .lte("date", toDate);
