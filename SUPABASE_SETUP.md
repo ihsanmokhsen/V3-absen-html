@@ -1,5 +1,10 @@
 # Setup Supabase (Secure-First)
 
+## Catatan Penting Database Bersama
+- Database Supabase ini juga dipakai oleh project web BPAD.
+- Aplikasi absensi tidak boleh mengubah tabel, policy, atau data milik web BPAD.
+- Baca guardrail lengkap di `CATATAN_DATABASE_BPAD.md` sebelum menjalankan script SQL.
+
 ## Status Keamanan Saat Ini
 - Source code **tidak** menyimpan URL/key Supabase hardcoded.
 - File rahasia lokal dipisahkan ke `supabase.local.js` (di-ignore oleh git).
@@ -40,7 +45,7 @@ Langkah:
 3. Tambah secrets:
 - `SUPABASE_URL` = URL project Supabase kamu
 - `SUPABASE_SERVICE_ROLE_KEY` = service role key (jangan pernah commit)
-4. Workflow akan jalan otomatis tiap 2 hari (`15 0 */2 * *`, UTC) dan update tabel `system_heartbeat`.
+4. Workflow akan jalan otomatis tiap 2 hari (`15 0 */2 * *`, UTC) dan update tabel `absen_system_heartbeat`.
 
 Catatan:
 - Scheduler GitHub Actions berjalan di branch default.
