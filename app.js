@@ -32,6 +32,14 @@
   ];
 
   const ALL_BIDANGS = ACCOUNTS.filter((account) => account.scope !== "ALL").map((account) => account.scope);
+  const ACCOUNT_PINS = {
+    ALL: "bpad1",
+    SEKRETARIAT: "sekretariat1",
+    "PENDAPATAN 1": "pendapatan1",
+    "PENDAPATAN 2": "pendapatan2",
+    "ASET 1": "aset1",
+    "ASET 2": "aset2"
+  };
   const SESSION_USER_KEY = "absensi_session_user";
 
   const state = {
@@ -118,7 +126,10 @@
   function ensureAccountPins() {
     ACCOUNTS.forEach((account) => {
       const key = accountPinKey(account.scope);
-      if (!storageGet(key)) storageSet(key, "1234");
+      const desiredPin = ACCOUNT_PINS[account.scope] || "1234";
+      if (storageGet(key) !== desiredPin) {
+        storageSet(key, desiredPin);
+      }
     });
   }
 
