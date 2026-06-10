@@ -51,12 +51,11 @@
             <option value="ASET 2">ASET 2</option>
           </select>
 
-          <label for="pinInput">PIN</label>
-          <input id="pinInput" name="pinInput" type="text" inputmode="numeric" autocomplete="current-password" placeholder="Masukkan PIN" required />
+          <label for="pinInput">Password</label>
+          <input id="pinInput" name="pinInput" type="password" autocomplete="current-password" placeholder="Masukkan password" required />
 
           <button class="primary-btn" type="submit">Masuk</button>
           <p class="hint">Gunakan akun bidang resmi.</p>
-          <button id="resetPinBtn" class="link-btn" type="button">Reset PIN</button>
           <p id="loginError" class="form-error" role="alert"></p>
         </form>
       </div>
@@ -76,7 +75,7 @@
         </div>
 
         <div class="header-actions">
-          <button id="changePinBtn" class="ghost-btn" type="button">Ganti PIN</button>
+          <button id="changePinBtn" class="ghost-btn" type="button">Ganti Password</button>
           <button id="logoutBtn" class="ghost-btn danger" type="button">Keluar</button>
         </div>
       </header>

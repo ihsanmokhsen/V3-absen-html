@@ -85,7 +85,6 @@
       loginForm: document.getElementById("loginForm"),
       adminName: document.getElementById("adminName"),
       pinInput: document.getElementById("pinInput"),
-      resetPinBtn: document.getElementById("resetPinBtn"),
       loginError: document.getElementById("loginError"),
       headerMeta: document.getElementById("headerMeta"),
       logoutBtn: document.getElementById("logoutBtn"),
@@ -141,7 +140,6 @@
 
   function bindEvents() {
     dom.loginForm.addEventListener("submit", handleLogin);
-    dom.resetPinBtn.addEventListener("click", handleResetPin);
     dom.logoutBtn.addEventListener("click", handleLogout);
     dom.changePinBtn.addEventListener("click", handleChangePin);
 
@@ -206,7 +204,7 @@
     const enteredPin = dom.pinInput.value.trim();
     const expectedPin = storageGet(accountPinKey(account.scope));
     if (enteredPin !== expectedPin) {
-      dom.loginError.textContent = "PIN tidak sesuai.";
+      dom.loginError.textContent = "Password tidak sesuai.";
       dom.pinInput.select();
       return;
     }
@@ -229,40 +227,26 @@
     showLogin();
   }
 
-  function handleResetPin() {
-    const username = String(dom.adminName.value || "").trim().toUpperCase();
-    const account = ACCOUNTS.find((item) => item.username === username);
-    if (!account) {
-      dom.loginError.textContent = "Isi nama akun bidang dulu untuk reset PIN.";
-      return;
-    }
-    if (!window.confirm(`Reset PIN akun ${account.username} ke default?`)) return;
-    storageSet(accountPinKey(account.scope), "1234");
-    dom.loginError.textContent = `PIN akun ${account.username} sudah direset ke default.`;
-    dom.pinInput.focus();
-    dom.pinInput.select();
-  }
-
   function handleChangePin() {
     if (!state.currentUser) return;
     const pinKey = accountPinKey(state.currentUser.scope);
-    const currentPin = window.prompt("Masukkan PIN lama:");
+    const currentPin = window.prompt("Masukkan password lama:");
     if (currentPin === null) return;
     if (currentPin.trim() !== storageGet(pinKey)) {
-      showToast("PIN lama tidak sesuai.");
+      showToast("Password lama tidak sesuai.");
       return;
     }
 
-    const nextPin = window.prompt("Masukkan PIN baru minimal 4 angka:");
+    const nextPin = window.prompt("Masukkan password baru minimal 4 karakter:");
     if (nextPin === null) return;
     const cleanPin = nextPin.trim();
     if (cleanPin.length < 4) {
-      showToast("PIN baru minimal 4 angka.");
+      showToast("Password baru minimal 4 karakter.");
       return;
     }
 
     storageSet(pinKey, cleanPin);
-    showToast("PIN akun berhasil diganti.");
+    showToast("Password akun berhasil diganti.");
   }
 
   function getSupabaseSync() {
