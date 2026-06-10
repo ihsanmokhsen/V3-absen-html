@@ -1,7 +1,7 @@
 -- Keepalive table for external scheduler (GitHub Actions, cron service, etc.)
 -- Safe for public repo. No anon/authenticated access is granted.
 
-create table if not exists public.system_heartbeat (
+create table if not exists public.absen_system_heartbeat (
   id text primary key,
   source text not null default 'scheduler',
   last_seen timestamptz not null default now(),
@@ -10,17 +10,22 @@ create table if not exists public.system_heartbeat (
 
 -- If row exists, update timestamp automatically by scheduler upsert.
 
-alter table public.system_heartbeat enable row level security;
+alter table public.absen_system_heartbeat enable row level security;
 
 -- Remove potentially permissive policies.
-drop policy if exists system_heartbeat_anon_all on public.system_heartbeat;
-drop policy if exists system_heartbeat_authenticated_all on public.system_heartbeat;
-drop policy if exists system_heartbeat_select_authenticated on public.system_heartbeat;
-drop policy if exists system_heartbeat_insert_authenticated on public.system_heartbeat;
-drop policy if exists system_heartbeat_update_authenticated on public.system_heartbeat;
+drop policy if exists absen_system_heartbeat_anon_all on public.absen_system_heartbeat;
+drop policy if exists absen_system_heartbeat_authenticated_all on public.absen_system_heartbeat;
+drop policy if exists absen_system_heartbeat_select_authenticated on public.absen_system_heartbeat;
+drop policy if exists absen_system_heartbeat_insert_authenticated on public.absen_system_heartbeat;
+drop policy if exists absen_system_heartbeat_update_authenticated on public.absen_system_heartbeat;
+drop policy if exists system_heartbeat_anon_all on public.absen_system_heartbeat;
+drop policy if exists system_heartbeat_authenticated_all on public.absen_system_heartbeat;
+drop policy if exists system_heartbeat_select_authenticated on public.absen_system_heartbeat;
+drop policy if exists system_heartbeat_insert_authenticated on public.absen_system_heartbeat;
+drop policy if exists system_heartbeat_update_authenticated on public.absen_system_heartbeat;
 
-revoke all on public.system_heartbeat from anon;
-revoke all on public.system_heartbeat from authenticated;
+revoke all on public.absen_system_heartbeat from anon;
+revoke all on public.absen_system_heartbeat from authenticated;
 
 -- service_role bypasses RLS; explicit grants keep intent clear.
-grant select, insert, update on public.system_heartbeat to service_role;
+grant select, insert, update on public.absen_system_heartbeat to service_role;

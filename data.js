@@ -50,7 +50,7 @@ window.PEGAWAI = [
   { id: "SEK-047", nama: "Jacobus Tonael", bidang: "SEKRETARIAT", jenis: "PPPK" },
   { id: "SEK-048", nama: "Christianus Ronge", bidang: "SEKRETARIAT", jenis: "PPPK" },
   { id: "SEK-049", nama: "Adi Arifin Johan Tefa", bidang: "SEKRETARIAT", jenis: "PPPK" },
-  { id: "SEK-050", nama: "Inggriani F. Kila Saduk", bidang: "SEKRETARIAT", jenis: "PPPK" },
+  { id: "SEK-050", nama: "Petrus Fredyk Kalumbang, A.Md", bidang: "SEKRETARIAT", jenis: "PPPK" },
   { id: "SEK-051", nama: "Marselinus Nainoe", bidang: "SEKRETARIAT", jenis: "PPPK" },
 
   { id: "PD1-001", nama: "Oktavianus Mare, SS", bidang: "PENDAPATAN 1", jenis: "ASN" },

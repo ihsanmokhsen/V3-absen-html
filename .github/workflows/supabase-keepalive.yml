@@ -27,7 +27,7 @@ jobs:
           )
 
           RESPONSE=$(curl -sS --fail-with-body \
-            -X POST "${SUPABASE_URL}/rest/v1/system_heartbeat?on_conflict=id" \
+            -X POST "${SUPABASE_URL}/rest/v1/absen_system_heartbeat?on_conflict=id" \
             -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/json" \

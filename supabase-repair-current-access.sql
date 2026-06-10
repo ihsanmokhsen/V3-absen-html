@@ -1,17 +1,23 @@
--- DEVELOPMENT ONLY (NOT SAFE FOR PRODUCTION)
--- This policy set allows unauthenticated (anon) CRUD from frontend clients.
--- Use only for temporary testing in private projects.
+-- Quick repair for current app tables after rename:
+-- public.absen_attendance_records
+-- public.absen_daily_reports
+--
+-- This opens anon/authenticated CRUD access so frontend (anon key) can save/read again.
+-- NOT for production hardening.
 
-alter table public.absen_attendance_records enable row level security;
-alter table public.absen_daily_reports enable row level security;
+alter table if exists public.absen_attendance_records enable row level security;
+alter table if exists public.absen_daily_reports enable row level security;
 
--- Ensure API roles can access schema/table metadata.
 grant usage on schema public to anon, authenticated;
 
 drop policy if exists absen_attendance_records_select_authenticated on public.absen_attendance_records;
 drop policy if exists absen_attendance_records_insert_authenticated on public.absen_attendance_records;
 drop policy if exists absen_attendance_records_update_authenticated on public.absen_attendance_records;
 drop policy if exists absen_attendance_records_delete_authenticated on public.absen_attendance_records;
+drop policy if exists attendance_records_select_authenticated on public.absen_attendance_records;
+drop policy if exists attendance_records_insert_authenticated on public.absen_attendance_records;
+drop policy if exists attendance_records_update_authenticated on public.absen_attendance_records;
+drop policy if exists attendance_records_delete_authenticated on public.absen_attendance_records;
 drop policy if exists absen_attendance_records_anon_all on public.absen_attendance_records;
 drop policy if exists attendance_records_anon_all on public.absen_attendance_records;
 
@@ -19,6 +25,10 @@ drop policy if exists absen_daily_reports_select_authenticated on public.absen_d
 drop policy if exists absen_daily_reports_insert_authenticated on public.absen_daily_reports;
 drop policy if exists absen_daily_reports_update_authenticated on public.absen_daily_reports;
 drop policy if exists absen_daily_reports_delete_authenticated on public.absen_daily_reports;
+drop policy if exists daily_reports_select_authenticated on public.absen_daily_reports;
+drop policy if exists daily_reports_insert_authenticated on public.absen_daily_reports;
+drop policy if exists daily_reports_update_authenticated on public.absen_daily_reports;
+drop policy if exists daily_reports_delete_authenticated on public.absen_daily_reports;
 drop policy if exists absen_daily_reports_anon_all on public.absen_daily_reports;
 drop policy if exists daily_reports_anon_all on public.absen_daily_reports;
 
