@@ -131,6 +131,7 @@
       ["Admin", admin || "-"],
       [],
       ["Total Pegawai", summary.Total],
+      ["Kurang", summary.Kurang],
       ["Hadir", summary.Hadir],
       ["Sakit", summary.Sakit],
       ["Izin", summary.Izin],
@@ -138,7 +139,6 @@
       ["Terlambat", summary.Terlambat],
       ["Tugas", summary.Tugas],
       ["Tubel", summary.Tubel],
-      ["Kurang", summary.Kurang],
       []
     ];
 
@@ -206,14 +206,14 @@
       doc,
       [
         ["Total Pegawai", summary.Total],
+        ["Kurang", summary.Kurang],
         ["Hadir", summary.Hadir],
         ["Sakit", summary.Sakit],
         ["Izin", summary.Izin],
         ["Cuti", summary.Cuti],
         ["Terlambat", summary.Terlambat],
         ["Tugas", summary.Tugas],
-        ["Tubel", summary.Tubel],
-        ["Kurang", summary.Kurang]
+        ["Tubel", summary.Tubel]
       ],
       56
     );

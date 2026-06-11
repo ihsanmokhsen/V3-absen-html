@@ -555,14 +555,14 @@
       `Admin: ${daily.admin || "-"}`,
       "",
       `Total Pegawai: ${daily.summary.Total}`,
+      `Kurang: ${daily.summary.Kurang}`,
       `Hadir: ${daily.summary.Hadir}`,
       `Sakit: ${daily.summary.Sakit}`,
       `Izin: ${daily.summary.Izin}`,
       `Cuti: ${daily.summary.Cuti}`,
       `Terlambat: ${daily.summary.Terlambat}`,
       `Tugas: ${daily.summary.Tugas}`,
-      `Tubel: ${daily.summary.Tubel}`,
-      `Kurang: ${daily.summary.Kurang}`
+      `Tubel: ${daily.summary.Tubel}`
     ].join("\n");
 
     const confirmed = window.confirm(`Konfirmasi Simpan Laporan\n\n${summaryText}\n\nSimpan ke perangkat sekarang? (akan sync ke Supabase jika aktif)`);
@@ -858,14 +858,14 @@
   function summaryCards(summary) {
     const cards = [
       ["Total", summary.Total, "total"],
+      ["Kurang", summary.Kurang, "absent"],
       ["Hadir", summary.Hadir, "present"],
       ["Sakit", summary.Sakit, "sick"],
       ["Izin", summary.Izin, "permit"],
       ["Cuti", summary.Cuti, "leave"],
       ["Terlambat", summary.Terlambat, "late"],
       ["Tugas", summary.Tugas, "duty"],
-      ["Tubel", summary.Tubel, "study"],
-      ["Kurang", summary.Kurang, "absent"]
+      ["Tubel", summary.Tubel, "study"]
     ];
 
     return cards

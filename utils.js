@@ -205,7 +205,7 @@
       }
     });
 
-    summary.Kurang = ABSENT_STATUS_KEYS.reduce((total, status) => total + summary[status], 0);
+    summary.Kurang = summary.Total - summary.Hadir;
     return summary;
   }
 
