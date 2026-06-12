@@ -1,10 +1,51 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bpad-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PG_DATABASE:-bpad_absensi}
+      POSTGRES_USER: ${PG_USER:-bpad}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-bpad_secret}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./vps-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-bpad} -d ${PG_DATABASE:-bpad_absensi}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: bpad-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: ${PG_DATABASE:-bpad_absensi}
+      PG_USER: ${PG_USER:-bpad}
+      PG_PASSWORD: ${PG_PASSWORD:-bpad_secret}
+      API_PORT: 3000
+      API_USER: ${API_USER:-bpad}
+      API_PASS: ${API_PASS:-bpad_api_secret}
+
   bpad-absensi:
     build: .
     container_name: bpad-absensi
     restart: unless-stopped
     ports:
       - "8080:80"
+    depends_on:
+      - api
     environment:
-      SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      API_USER: ${API_USER:-bpad}
+      API_PASS: ${API_PASS:-bpad_api_secret}
+
+volumes:
+  pgdata:

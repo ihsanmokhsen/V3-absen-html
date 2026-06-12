@@ -5,11 +5,10 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 WORKDIR /usr/share/nginx/html
 RUN rm -rf ./*
 
-COPY index.html style.css app.js data.js utils.js reports.js supabase-sync.js supabase.local.example.js ./
-RUN cp supabase.local.example.js supabase.local.js
+COPY index.html style.css app.js data.js utils.js reports.js api-sync.js api-config.example.js ./
 
-COPY docker-entrypoint.d/10-supabase-config.sh /docker-entrypoint.d/10-supabase-config.sh
-RUN chmod +x /docker-entrypoint.d/10-supabase-config.sh
+COPY docker-entrypoint.d/10-api-config.sh /docker-entrypoint.d/10-api-config.sh
+RUN chmod +x /docker-entrypoint.d/10-api-config.sh
 
 EXPOSE 80
 

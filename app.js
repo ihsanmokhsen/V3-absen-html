@@ -32,14 +32,6 @@
   ];
 
   const ALL_BIDANGS = ACCOUNTS.filter((account) => account.scope !== "ALL").map((account) => account.scope);
-  const ACCOUNT_PINS = {
-    ALL: "bpad1",
-    SEKRETARIAT: "sekretariat1",
-    "PENDAPATAN 1": "pendapatan1",
-    "PENDAPATAN 2": "pendapatan2",
-    "ASET 1": "aset1",
-    "ASET 2": "aset2"
-  };
   const SESSION_USER_KEY = "absensi_session_user";
 
   const state = {
@@ -65,7 +57,6 @@
 
   function init() {
     cacheDom();
-    ensureAccountPins();
     hydrateInputs();
     bindEvents();
 
@@ -119,16 +110,6 @@
       exportMonthlyPdfBtn: document.getElementById("exportMonthlyPdfBtn"),
       historyList: document.getElementById("historyList"),
       toast: document.getElementById("toast")
-    });
-  }
-
-  function ensureAccountPins() {
-    ACCOUNTS.forEach((account) => {
-      const key = accountPinKey(account.scope);
-      const desiredPin = ACCOUNT_PINS[account.scope] || "1234";
-      if (storageGet(key) !== desiredPin) {
-        storageSet(key, desiredPin);
-      }
     });
   }
 
@@ -191,7 +172,7 @@
     });
   }
 
-  function handleLogin(event) {
+  async function handleLogin(event) {
     event.preventDefault();
     const username = String(dom.adminName.value || "").trim().toUpperCase();
     const account = ACCOUNTS.find((item) => item.username === username);
@@ -201,17 +182,30 @@
       return;
     }
 
-    const enteredPin = dom.pinInput.value.trim();
-    const expectedPin = storageGet(accountPinKey(account.scope));
-    if (enteredPin !== expectedPin) {
-      dom.loginError.textContent = "Password tidak sesuai.";
+    const password = dom.pinInput.value.trim();
+    if (!password) {
+      dom.loginError.textContent = "Password wajib diisi.";
+      return;
+    }
+
+    const sync = getSupabaseSync();
+    if (!sync || typeof sync.login !== "function") {
+      dom.loginError.textContent = "Server tidak tersedia.";
+      return;
+    }
+
+    dom.loginError.textContent = "Memverifikasi...";
+    const result = await sync.login(username, password);
+
+    if (!result.ok) {
+      dom.loginError.textContent = result.error || "Login gagal.";
       dom.pinInput.select();
       return;
     }
 
     state.currentUser = {
-      username: account.username,
-      scope: account.scope
+      username: result.user.username,
+      scope: result.user.scope
     };
     writeSessionUser(state.currentUser);
     sessionSet(STORAGE.session, "active");
@@ -227,15 +221,10 @@
     showLogin();
   }
 
-  function handleChangePin() {
+  async function handleChangePin() {
     if (!state.currentUser) return;
-    const pinKey = accountPinKey(state.currentUser.scope);
     const currentPin = window.prompt("Masukkan password lama:");
     if (currentPin === null) return;
-    if (currentPin.trim() !== storageGet(pinKey)) {
-      showToast("Password lama tidak sesuai.");
-      return;
-    }
 
     const nextPin = window.prompt("Masukkan password baru minimal 4 karakter:");
     if (nextPin === null) return;
@@ -245,7 +234,18 @@
       return;
     }
 
-    storageSet(pinKey, cleanPin);
+    const sync = getSupabaseSync();
+    if (!sync || typeof sync.changePassword !== "function") {
+      showToast("Server tidak tersedia.");
+      return;
+    }
+
+    const result = await sync.changePassword(state.currentUser.scope, currentPin.trim(), cleanPin);
+    if (!result.ok) {
+      showToast(result.error || "Gagal mengubah password.");
+      return;
+    }
+
     showToast("Password akun berhasil diganti.");
   }
 
@@ -357,7 +357,7 @@
       }
 
       if (!options.silent) {
-        showToast(changed ? "Data Supabase berhasil ditarik." : "Data sudah paling baru.");
+        showToast(changed ? "Data server berhasil ditarik." : "Data sudah paling baru.");
       }
     } catch (error) {
       if (!options.silent) showToast(`Sync gagal: ${error.message}`);
@@ -368,7 +368,7 @@
     const now = Date.now();
     if (now - syncErrorToastAt < 5000) return;
     syncErrorToastAt = now;
-    showToast(`Supabase: ${message}`);
+    showToast(`Server: ${message}`);
   }
 
   function queueAttendanceSync(record) {
@@ -565,7 +565,7 @@
       `Tubel: ${daily.summary.Tubel}`
     ].join("\n");
 
-    const confirmed = window.confirm(`Konfirmasi Simpan Laporan\n\n${summaryText}\n\nSimpan ke perangkat sekarang? (akan sync ke Supabase jika aktif)`);
+    const confirmed = window.confirm(`Konfirmasi Simpan Laporan\n\n${summaryText}\n\nSimpan ke perangkat sekarang? (akan sync ke server jika aktif)`);
     if (!confirmed) {
       showToast("Penyimpanan dibatalkan.");
       return;
@@ -1318,10 +1318,6 @@
       current.setDate(current.getDate() + 1);
     }
     return dates;
-  }
-
-  function accountPinKey(scope) {
-    return `pin_${scopeKey(scope)}`;
   }
 
   function writeSessionUser(user) {

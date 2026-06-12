@@ -4,8 +4,7 @@
 .env
 .env.*
 !.env.example
-supabase.local.js
-supabase.local.json
-*.sql
+api-config.js
+server/node_modules
 *.md
 *.xlsx

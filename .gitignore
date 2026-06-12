@@ -2,8 +2,10 @@
 .env
 .env.*
 !.env.example
-supabase.local.js
-supabase.local.json
+api-config.js
+
+# Node.js
+server/node_modules/
 
 # OS/editor
 .DS_Store
