@@ -109,7 +109,7 @@
       monthlyTable: document.getElementById("monthlyTable"),
       monthlyDetailInput: document.getElementById("monthlyDetailInput"),
       monthlyDetailMeta: document.getElementById("monthlyDetailMeta"),
-      monthlyDetailTable: document.getElementById("monthlyDetailTable"),
+      monthlyDetailContent: document.getElementById("monthlyDetailContent"),
       exportMonthlyExcelBtn: document.getElementById("exportMonthlyExcelBtn"),
       exportMonthlyPdfBtn: document.getElementById("exportMonthlyPdfBtn"),
       historyList: document.getElementById("historyList"),
@@ -794,48 +794,52 @@
     dom.monthlyDetailMeta.textContent = `${formatMonth(state.currentMonth)} | ${currentScope()} | ${datesWithData.length} hari absensi`;
 
     if (!datesWithData.length) {
-      dom.monthlyDetailTable.querySelector("thead").innerHTML = "";
-      dom.monthlyDetailTable.querySelector("tbody").innerHTML = `<tr><td>${emptyState("Belum ada data absensi pada bulan ini.")}</td></tr>`;
+      dom.monthlyDetailContent.innerHTML = emptyState("Belum ada data absensi pada bulan ini.");
       return;
     }
 
-    const shortMap = Object.fromEntries(STATUS_CONFIG.map((s) => [s.key, s.short]));
     const toneMap = Object.fromEntries(STATUS_CONFIG.map((s) => [s.key, s.tone]));
 
-    // Header: No | Nama | d1 | d2 | ... | dN | H | S | I | C | T | TG | TB
-    const dayHeaders = datesWithData.map((date) => {
-      const day = Number(date.split("-")[2]);
-      return `<th class="day-col">${day}</th>`;
+    // Build a card per day (newest first)
+    const dayCards = [...datesWithData].reverse().map((date) => {
+      const rows = employees.map((employee) => ({
+        ...employee,
+        status: getMonthlyStatusForEmployee(date, employee) || "Belum Diabsen"
+      }));
+
+      const summary = calculateSummary(rows);
+      const absentRows = rows.filter((row) => row.status !== "Hadir" && row.status !== "Belum Diabsen");
+
+      const summaryBadges = [
+        `<span class="mini-badge badge-present">Hadir ${summary.Hadir}</span>`,
+        `<span class="mini-badge badge-absent">Kurang ${summary.Kurang}</span>`
+      ].join("");
+
+      const absentList = absentRows.length
+        ? absentRows.map((row) => `
+          <div class="status-row compact-row">
+            <div>
+              <strong>${escapeHtml(displayName(row))}</strong>
+            </div>
+            <span class="status-badge ${statusTone(row.status)}">${escapeHtml(row.status)}</span>
+          </div>
+        `).join("")
+        : `<p class="muted" style="padding:6px 0;font-size:0.82rem">Semua hadir.</p>`;
+
+      return `
+        <div class="day-card">
+          <div class="day-card-header">
+            <h3>${escapeHtml(formatDate(date))}</h3>
+            <div class="day-card-badges">${summaryBadges}</div>
+          </div>
+          <div class="day-card-body">
+            ${absentList}
+          </div>
+        </div>
+      `;
     });
-    const summaryHeaders = ["H", "S", "I", "C", "T", "TG", "TB"];
 
-    dom.monthlyDetailTable.querySelector("thead").innerHTML = `<tr><th class="sticky-col">No</th><th class="sticky-col-name">Nama</th>${dayHeaders.join("")}${summaryHeaders.map((h) => `<th class="summary-col">${h}</th>`).join("")}</tr>`;
-
-    dom.monthlyDetailTable.querySelector("tbody").innerHTML = employees
-      .map((employee, index) => {
-        const counts = { Hadir: 0, Sakit: 0, Izin: 0, Cuti: 0, Terlambat: 0, Tugas: 0, Tubel: 0 };
-        const cells = datesWithData.map((date) => {
-          const status = getMonthlyStatusForEmployee(date, employee);
-          if (counts[status] !== undefined) counts[status] += 1;
-          const short = shortMap[status] || "-";
-          const tone = toneMap[status] || "neutral";
-          return `<td class="day-col cell-${tone}">${short}</td>`;
-        });
-
-        return `<tr>
-          <td class="sticky-col">${index + 1}</td>
-          <td class="sticky-col-name">${escapeHtml(displayName(employee))}</td>
-          ${cells.join("")}
-          <td class="summary-col">${counts.Hadir}</td>
-          <td class="summary-col">${counts.Sakit}</td>
-          <td class="summary-col">${counts.Izin}</td>
-          <td class="summary-col">${counts.Cuti}</td>
-          <td class="summary-col">${counts.Terlambat}</td>
-          <td class="summary-col">${counts.Tugas}</td>
-          <td class="summary-col">${counts.Tubel}</td>
-        </tr>`;
-      })
-      .join("");
+    dom.monthlyDetailContent.innerHTML = dayCards.join("");
   }
 
   function renderHistory() {

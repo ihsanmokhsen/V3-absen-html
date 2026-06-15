@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-title" content="Absensi BPAD" />
     <link rel="manifest" href="manifest.json" />
     <title>Absensi Apel Pagi BPAD Provinsi NTT</title>
-    <link rel="stylesheet" href="style.css?v=20260615-2" />
+    <link rel="stylesheet" href="style.css?v=20260615-3" />
     <script>
       document.addEventListener(
         "submit",
@@ -26,7 +26,7 @@
     <script defer src="reports.js?v=20260615-1"></script>
     <script defer src="api-config.js?v=20260615-1"></script>
     <script defer src="api-sync.js?v=20260615-2"></script>
-    <script defer src="app.js?v=20260615-3"></script>
+    <script defer src="app.js?v=20260615-4"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   </head>
@@ -199,23 +199,8 @@
             </div>
           </div>
 
-          <div class="legend-row" id="monthlyDetailLegend">
-            <span class="legend-item legend-present">H = Hadir</span>
-            <span class="legend-item legend-sick">S = Sakit</span>
-            <span class="legend-item legend-permit">I = Izin</span>
-            <span class="legend-item legend-leave">C = Cuti</span>
-            <span class="legend-item legend-late">T = Terlambat</span>
-            <span class="legend-item legend-duty">TG = Tugas</span>
-            <span class="legend-item legend-study">TB = Tubel</span>
-          </div>
-
           <div class="table-card">
-            <div class="table-scroll table-scroll-detail">
-              <table id="monthlyDetailTable">
-                <thead></thead>
-                <tbody></tbody>
-              </table>
-            </div>
+            <div id="monthlyDetailContent" class="day-groups"></div>
           </div>
         </section>
 
