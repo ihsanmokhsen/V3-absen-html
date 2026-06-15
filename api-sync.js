@@ -304,14 +304,73 @@
   }
 
   // -------------------------------------------------------------------------
+  // Pegawai (employee master data)
+  // -------------------------------------------------------------------------
+
+  async function getPegawai(bidang) {
+    try {
+      var params = {};
+      if (bidang) params.bidang = bidang;
+      var result = await apiGet("/pegawai", params);
+      return { ok: !!result.ok, error: result.error, data: result.data || [] };
+    } catch (error) {
+      return { ok: false, error: error.message, data: [] };
+    }
+  }
+
+  async function addPegawai(pegawai) {
+    try {
+      var result = await apiPost("/pegawai", pegawai);
+      return { ok: !!result.ok, error: result.error };
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+  }
+
+  async function updatePegawai(id, changes) {
+    try {
+      var resp = await fetch(baseUrl() + "/pegawai/" + encodeURIComponent(id), {
+        method: "PUT",
+        headers: Object.assign(
+          { "Content-Type": "application/json", Accept: "application/json" },
+          authHeaders()
+        ),
+        body: JSON.stringify(changes)
+      });
+      var result = await resp.json();
+      return { ok: !!result.ok, error: result.error };
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+  }
+
+  async function deletePegawai(id, hard) {
+    try {
+      var url = baseUrl() + "/pegawai/" + encodeURIComponent(id);
+      if (hard) url += "?hard=true";
+      var resp = await fetch(url, {
+        method: "DELETE",
+        headers: Object.assign({ Accept: "application/json" }, authHeaders())
+      });
+      var result = await resp.json();
+      return { ok: !!result.ok, error: result.error };
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Expose as window.SupabaseSync for backward compatibility with app.js
   // -------------------------------------------------------------------------
   window.SupabaseSync = {
+    addPegawai: addPegawai,
     changePassword: changePassword,
     clearConfig: clearConfig,
+    deletePegawai: deletePegawai,
     deleteScopeDateData: deleteScopeDateData,
     getConfig: getConfig,
     getMaskedConfig: getMaskedConfig,
+    getPegawai: getPegawai,
     isConfigured: isConfigured,
     login: login,
     ping: ping,
@@ -319,6 +378,7 @@
     pullDateData: pullDateData,
     pullReports: pullReports,
     setConfig: setConfig,
+    updatePegawai: updatePegawai,
     upsertAttendance: upsertAttendance,
     upsertReport: upsertReport
   };

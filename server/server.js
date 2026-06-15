@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
 const { Pool } = require("pg");
+const PEGAWAI_SEED = require("./pegawai-seed");
 
 const app = express();
 const PORT = process.env.API_PORT || 3000;
@@ -309,6 +310,129 @@ app.delete("/api/data/:date/:scope", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Pegawai (employee master data)
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /api/pegawai
+ * Returns all active employees ordered by bidang and urutan.
+ */
+app.get("/api/pegawai", async (req, res) => {
+  try {
+    const { bidang, active_only } = req.query;
+    let sql = "select id, nama, bidang, jenis, urutan, is_active from absen_pegawai where is_active = true";
+    const params = [];
+
+    if (active_only === "false") {
+      sql = "select id, nama, bidang, jenis, urutan, is_active from absen_pegawai where 1=1";
+    }
+
+    if (bidang) {
+      params.push(bidang);
+      sql += ` and bidang = $${params.length}`;
+    }
+
+    sql += " order by bidang, urutan, id";
+    const { rows } = await pool.query(sql, params);
+    res.json({ ok: true, data: rows });
+  } catch (err) {
+    console.error("get pegawai error", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/pegawai
+ * Body: { id, nama, bidang, jenis, urutan }
+ */
+app.post("/api/pegawai", async (req, res) => {
+  try {
+    const { id, nama, bidang, jenis, urutan } = req.body;
+    if (!id || !nama || !bidang) {
+      return res.status(400).json({ ok: false, error: "id, nama, and bidang are required" });
+    }
+
+    await pool.query(
+      `insert into absen_pegawai (id, nama, bidang, jenis, urutan)
+       values ($1, $2, $3, $4, $5)
+       on conflict (id) do update set nama = $2, bidang = $3, jenis = $4, urutan = $5, updated_at = now()`,
+      [String(id).trim(), nama.trim(), bidang.trim(), (jenis || "ASN").trim(), urutan || 0]
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("post pegawai error", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * PUT /api/pegawai/:id
+ * Body: { nama?, bidang?, jenis?, urutan?, is_active? }
+ */
+app.put("/api/pegawai/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nama, bidang, jenis, urutan, is_active } = req.body;
+
+    const sets = [];
+    const params = [];
+
+    if (nama !== undefined) { params.push(nama.trim()); sets.push(`nama = $${params.length}`); }
+    if (bidang !== undefined) { params.push(bidang.trim()); sets.push(`bidang = $${params.length}`); }
+    if (jenis !== undefined) { params.push(jenis.trim()); sets.push(`jenis = $${params.length}`); }
+    if (urutan !== undefined) { params.push(urutan); sets.push(`urutan = $${params.length}`); }
+    if (is_active !== undefined) { params.push(is_active); sets.push(`is_active = $${params.length}`); }
+
+    if (!sets.length) {
+      return res.status(400).json({ ok: false, error: "No fields to update" });
+    }
+
+    sets.push(`updated_at = now()`);
+    params.push(id);
+
+    const { rowCount } = await pool.query(
+      `update absen_pegawai set ${sets.join(", ")} where id = $${params.length}`,
+      params
+    );
+
+    if (!rowCount) {
+      return res.status(404).json({ ok: false, error: "Employee not found" });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("put pegawai error", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/pegawai/:id
+ * Soft delete (set is_active = false).
+ */
+app.delete("/api/pegawai/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { hard } = req.query;
+
+    if (hard === "true") {
+      await pool.query("delete from absen_pegawai where id = $1", [id]);
+    } else {
+      await pool.query(
+        "update absen_pegawai set is_active = false, updated_at = now() where id = $1",
+        [id]
+      );
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("delete pegawai error", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------
 
@@ -445,12 +569,48 @@ async function seedUsers() {
   }
 }
 
+async function seedPegawai() {
+  const { rows } = await pool.query("select count(*)::int as cnt from absen_pegawai");
+  if (rows[0].cnt > 0) {
+    console.log(`Pegawai table already has ${rows[0].cnt} rows, skipping seed.`);
+    return;
+  }
+
+  for (let i = 0; i < PEGAWAI_SEED.length; i++) {
+    const p = PEGAWAI_SEED[i];
+    await pool.query(
+      `insert into absen_pegawai (id, nama, bidang, jenis, urutan)
+       values ($1, $2, $3, $4, $5)
+       on conflict (id) do nothing`,
+      [p.id, p.nama, p.bidang, p.jenis, i + 1]
+    );
+  }
+  console.log(`Seeded ${PEGAWAI_SEED.length} pegawai records.`);
+}
+
 app.listen(PORT, "0.0.0.0", async () => {
   console.log(`BPAD Absensi API listening on port ${PORT}`);
   try {
+    // Auto-migrate: ensure absen_pegawai table exists
+    await pool.query(`
+      create table if not exists absen_pegawai (
+        id text primary key,
+        nama text not null,
+        bidang text not null,
+        jenis text not null default 'ASN',
+        urutan int not null default 0,
+        is_active boolean not null default true,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      )
+    `);
+    await pool.query(`create index if not exists idx_pegawai_bidang on absen_pegawai (bidang)`);
+    await pool.query(`create index if not exists idx_pegawai_active on absen_pegawai (is_active) where is_active = true`);
+
     await seedUsers();
-    console.log("User seeding complete.");
+    await seedPegawai();
+    console.log("Seeding complete.");
   } catch (err) {
-    console.error("User seeding failed:", err.message);
+    console.error("Seeding failed:", err.message);
   }
 });

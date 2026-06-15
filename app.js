@@ -63,7 +63,7 @@
     const restoredUser = readSessionUser();
     if (restoredUser) {
       state.currentUser = restoredUser;
-      showApp();
+      void showApp();
       return;
     }
     showLogin();
@@ -211,7 +211,7 @@
     sessionSet(STORAGE.session, "active");
     dom.pinInput.value = "";
     dom.loginError.textContent = "";
-    showApp();
+    void showApp();
   }
 
   function handleLogout() {
@@ -400,16 +400,37 @@
     dom.appShell.classList.add("hidden");
   }
 
-  function showApp() {
+  async function showApp() {
     dom.loginScreen.classList.add("hidden");
     dom.appShell.classList.remove("hidden");
     state.search = "";
     state.field = "ALL";
     dom.searchInput.value = "";
+
+    await loadPegawaiFromServer();
     populateFieldFilter();
     loadCurrentAttendance();
     renderAll();
     void hydrateScopedDataFromSupabase(state.currentDate, { silent: true });
+  }
+
+  async function loadPegawaiFromServer() {
+    const sync = getSupabaseSync();
+    if (!sync || typeof sync.getPegawai !== "function") return;
+
+    try {
+      const result = await sync.getPegawai();
+      if (result.ok && Array.isArray(result.data) && result.data.length) {
+        window.PEGAWAI = result.data.map((p) => ({
+          id: p.id,
+          nama: p.nama,
+          bidang: p.bidang,
+          jenis: p.jenis || "ASN"
+        }));
+      }
+    } catch (error) {
+      console.warn("Failed to load pegawai from server:", error);
+    }
   }
 
   function switchTab(tab) {

@@ -37,3 +37,18 @@ create table if not exists public.absen_users (
   salt text not null,
   updated_at timestamptz not null default now()
 );
+
+-- Pegawai (employee) master data
+create table if not exists public.absen_pegawai (
+  id text primary key,
+  nama text not null,
+  bidang text not null,
+  jenis text not null default 'ASN',
+  urutan int not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_pegawai_bidang on public.absen_pegawai (bidang);
+create index if not exists idx_pegawai_active on public.absen_pegawai (is_active) where is_active = true;
