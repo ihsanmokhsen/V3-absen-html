@@ -85,6 +85,7 @@
         attendance: document.getElementById("attendanceView"),
         daily: document.getElementById("dailyView"),
         monthly: document.getElementById("monthlyView"),
+        monthlyDetail: document.getElementById("monthlyDetailView"),
         history: document.getElementById("historyView")
       },
       attendanceDate: document.getElementById("attendanceDate"),
@@ -106,6 +107,9 @@
       monthlyInput: document.getElementById("monthlyInput"),
       monthlyMeta: document.getElementById("monthlyMeta"),
       monthlyTable: document.getElementById("monthlyTable"),
+      monthlyDetailInput: document.getElementById("monthlyDetailInput"),
+      monthlyDetailMeta: document.getElementById("monthlyDetailMeta"),
+      monthlyDetailTable: document.getElementById("monthlyDetailTable"),
       exportMonthlyExcelBtn: document.getElementById("exportMonthlyExcelBtn"),
       exportMonthlyPdfBtn: document.getElementById("exportMonthlyPdfBtn"),
       historyList: document.getElementById("historyList"),
@@ -117,6 +121,7 @@
     dom.adminName.value = "";
     dom.attendanceDate.value = state.currentDate;
     dom.monthlyInput.value = state.currentMonth;
+    dom.monthlyDetailInput.value = state.currentMonth;
   }
 
   function bindEvents() {
@@ -138,6 +143,12 @@
     dom.monthlyInput.addEventListener("change", () => {
       state.currentMonth = dom.monthlyInput.value || thisMonthInputValue();
       renderMonthly();
+    });
+
+    dom.monthlyDetailInput.addEventListener("change", () => {
+      state.currentMonth = dom.monthlyDetailInput.value || thisMonthInputValue();
+      dom.monthlyInput.value = state.currentMonth;
+      renderMonthlyDetail();
     });
 
     dom.startAttendanceBtn.addEventListener("click", handleStartAttendance);
@@ -447,6 +458,7 @@
 
     if (tab === "daily") renderDaily();
     if (tab === "monthly") renderMonthly();
+    if (tab === "monthlyDetail") renderMonthlyDetail();
     if (tab === "history") {
       renderHistory();
       void hydrateScopedDataFromSupabase(state.currentDate, { silent: true });
@@ -771,6 +783,58 @@
           <td><strong>${row.TotalTidakHadir}</strong></td>
         </tr>
       `)
+      .join("");
+  }
+
+  function renderMonthlyDetail() {
+    const employees = getScopedEmployees();
+    const dates = enumerateMonthDates(state.currentMonth);
+    const datesWithData = dates.filter((date) => hasMonthlyDataForScope(date));
+
+    dom.monthlyDetailMeta.textContent = `${formatMonth(state.currentMonth)} | ${currentScope()} | ${datesWithData.length} hari absensi`;
+
+    if (!datesWithData.length) {
+      dom.monthlyDetailTable.querySelector("thead").innerHTML = "";
+      dom.monthlyDetailTable.querySelector("tbody").innerHTML = `<tr><td>${emptyState("Belum ada data absensi pada bulan ini.")}</td></tr>`;
+      return;
+    }
+
+    const shortMap = Object.fromEntries(STATUS_CONFIG.map((s) => [s.key, s.short]));
+    const toneMap = Object.fromEntries(STATUS_CONFIG.map((s) => [s.key, s.tone]));
+
+    // Header: No | Nama | d1 | d2 | ... | dN | H | S | I | C | T | TG | TB
+    const dayHeaders = datesWithData.map((date) => {
+      const day = Number(date.split("-")[2]);
+      return `<th class="day-col">${day}</th>`;
+    });
+    const summaryHeaders = ["H", "S", "I", "C", "T", "TG", "TB"];
+
+    dom.monthlyDetailTable.querySelector("thead").innerHTML = `<tr><th class="sticky-col">No</th><th class="sticky-col-name">Nama</th>${dayHeaders.join("")}${summaryHeaders.map((h) => `<th class="summary-col">${h}</th>`).join("")}</tr>`;
+
+    dom.monthlyDetailTable.querySelector("tbody").innerHTML = employees
+      .map((employee, index) => {
+        const counts = { Hadir: 0, Sakit: 0, Izin: 0, Cuti: 0, Terlambat: 0, Tugas: 0, Tubel: 0 };
+        const cells = datesWithData.map((date) => {
+          const status = getMonthlyStatusForEmployee(date, employee);
+          if (counts[status] !== undefined) counts[status] += 1;
+          const short = shortMap[status] || "-";
+          const tone = toneMap[status] || "neutral";
+          return `<td class="day-col cell-${tone}">${short}</td>`;
+        });
+
+        return `<tr>
+          <td class="sticky-col">${index + 1}</td>
+          <td class="sticky-col-name">${escapeHtml(displayName(employee))}</td>
+          ${cells.join("")}
+          <td class="summary-col">${counts.Hadir}</td>
+          <td class="summary-col">${counts.Sakit}</td>
+          <td class="summary-col">${counts.Izin}</td>
+          <td class="summary-col">${counts.Cuti}</td>
+          <td class="summary-col">${counts.Terlambat}</td>
+          <td class="summary-col">${counts.Tugas}</td>
+          <td class="summary-col">${counts.Tubel}</td>
+        </tr>`;
+      })
       .join("");
   }
 
