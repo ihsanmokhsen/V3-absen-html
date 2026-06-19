@@ -688,16 +688,24 @@ th {
   margin: 0 0 10px;
   padding: 10px 14px;
   border-radius: 12px;
-  background: #f2f2f7;
   font-size: 0.92rem;
   font-weight: 800;
   letter-spacing: -0.01em;
+  color: #fff;
 }
 
 .pegawai-bidang-title .muted {
   font-weight: 600;
   font-size: 0.82rem;
+  opacity: 0.85;
 }
+
+/* Per-bidang colors */
+.pegawai-bidang-title[data-bidang="SEKRETARIAT"] { background: #5e5ce6; }
+.pegawai-bidang-title[data-bidang="PENDAPATAN 1"] { background: #30b0c7; }
+.pegawai-bidang-title[data-bidang="PENDAPATAN 2"] { background: #0f7b3b; }
+.pegawai-bidang-title[data-bidang="ASET 1"] { background: #af5a2f; }
+.pegawai-bidang-title[data-bidang="ASET 2"] { background: #a3408a; }
 
 .pegawai-jenis-group {
   margin-bottom: 12px;
@@ -705,12 +713,28 @@ th {
 
 .pegawai-jenis-label {
   margin: 0 0 8px;
-  padding-left: 4px;
-  color: var(--muted);
-  font-size: 0.78rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  display: inline-block;
+}
+
+.pegawai-jenis-label[data-jenis="ASN"] {
+  color: #1f5d8f;
+  background: rgba(31, 93, 143, 0.1);
+}
+
+.pegawai-jenis-label[data-jenis="PPPK"] {
+  color: #6f4bb7;
+  background: rgba(111, 75, 183, 0.1);
+}
+
+.pegawai-jenis-label[data-jenis="Lainnya"] {
+  color: var(--muted);
+  background: #f2f2f7;
 }
 
 .day-groups {

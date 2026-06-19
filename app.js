@@ -1597,28 +1597,28 @@
       if (asn.length) {
         subSections += `
           <div class="pegawai-jenis-group">
-            <h4 class="pegawai-jenis-label">ASN (${asn.length})</h4>
+            <h4 class="pegawai-jenis-label" data-jenis="ASN">ASN (${asn.length})</h4>
             <div class="employee-list">${asn.map(cardHtml).join("")}</div>
           </div>`;
       }
       if (pppk.length) {
         subSections += `
           <div class="pegawai-jenis-group">
-            <h4 class="pegawai-jenis-label">PPPK (${pppk.length})</h4>
+            <h4 class="pegawai-jenis-label" data-jenis="PPPK">PPPK (${pppk.length})</h4>
             <div class="employee-list">${pppk.map(cardHtml).join("")}</div>
           </div>`;
       }
       if (lainnya.length) {
         subSections += `
           <div class="pegawai-jenis-group">
-            <h4 class="pegawai-jenis-label">Lainnya (${lainnya.length})</h4>
+            <h4 class="pegawai-jenis-label" data-jenis="Lainnya">Lainnya (${lainnya.length})</h4>
             <div class="employee-list">${lainnya.map(cardHtml).join("")}</div>
           </div>`;
       }
 
       return `
         <div class="pegawai-bidang-section">
-          <h3 class="pegawai-bidang-title">${escapeHtml(bidang)} <span class="muted">(${members.length})</span></h3>
+          <h3 class="pegawai-bidang-title" data-bidang="${escapeHtml(bidang)}">${escapeHtml(bidang)} <span class="muted">(${members.length})</span></h3>
           ${subSections}
         </div>`;
     });
