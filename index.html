@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-title" content="Absensi BPAD" />
     <link rel="manifest" href="manifest.json" />
     <title>Absensi Apel Pagi BPAD Provinsi NTT</title>
-    <link rel="stylesheet" href="style.css?v=20260615-3" />
+    <link rel="stylesheet" href="style.css?v=20260616-1" />
     <script>
       document.addEventListener(
         "submit",
@@ -21,12 +21,12 @@
         true
       );
     </script>
-    <script defer src="data.js?v=20260615-1"></script>
-    <script defer src="utils.js?v=20260615-1"></script>
-    <script defer src="reports.js?v=20260615-1"></script>
-    <script defer src="api-config.js?v=20260615-1"></script>
-    <script defer src="api-sync.js?v=20260615-2"></script>
-    <script defer src="app.js?v=20260615-4"></script>
+    <script defer src="data.js?v=20260616-1"></script>
+    <script defer src="utils.js?v=20260616-1"></script>
+    <script defer src="reports.js?v=20260616-1"></script>
+    <script defer src="api-config.js?v=20260616-1"></script>
+    <script defer src="api-sync.js?v=20260616-1"></script>
+    <script defer src="app.js?v=20260616-1"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   </head>
@@ -88,6 +88,7 @@
         <button class="tab-btn" type="button" data-tab="daily" aria-selected="false">Rekap Harian</button>
         <button class="tab-btn" type="button" data-tab="monthly" aria-selected="false">Rekap Bulanan</button>
         <button class="tab-btn" type="button" data-tab="monthlyDetail" aria-selected="false">Detail Bulanan</button>
+        <button class="tab-btn" type="button" data-tab="pegawai" aria-selected="false">Pegawai</button>
         <button class="tab-btn" type="button" data-tab="history" aria-selected="false">Riwayat</button>
       </nav>
 
@@ -199,9 +200,78 @@
             </div>
           </div>
 
+          <div class="export-actions">
+            <button id="exportDetailExcelBtn" class="secondary-btn" type="button">Export Excel</button>
+            <button id="exportDetailPdfBtn" class="secondary-btn" type="button">Export PDF</button>
+          </div>
+
           <div class="table-card">
             <div id="monthlyDetailContent" class="day-groups"></div>
           </div>
+        </section>
+
+        <section id="pegawaiView" class="view-panel hidden">
+          <div class="panel-card section-heading">
+            <div>
+              <p class="eyebrow">Manajemen Pegawai</p>
+              <h2>Data pegawai</h2>
+              <p id="pegawaiMeta" class="muted"></p>
+            </div>
+            <button id="addPegawaiBtn" class="secondary-btn" type="button">Tambah Pegawai</button>
+          </div>
+
+          <div id="pegawaiFormCard" class="panel-card hidden">
+            <h3 id="pegawaiFormTitle">Tambah Pegawai</h3>
+            <div class="pegawai-form-grid">
+              <div>
+                <label for="pegawaiNama">Nama</label>
+                <input id="pegawaiNama" type="text" placeholder="Nama lengkap" />
+              </div>
+              <div>
+                <label for="pegawaiBidang">Bidang</label>
+                <select id="pegawaiBidang">
+                  <option value="SEKRETARIAT">SEKRETARIAT</option>
+                  <option value="PENDAPATAN 1">PENDAPATAN 1</option>
+                  <option value="PENDAPATAN 2">PENDAPATAN 2</option>
+                  <option value="ASET 1">ASET 1</option>
+                  <option value="ASET 2">ASET 2</option>
+                </select>
+              </div>
+              <div>
+                <label for="pegawaiJenis">Jenis</label>
+                <select id="pegawaiJenis">
+                  <option value="ASN">ASN</option>
+                  <option value="PPPK">PPPK</option>
+                  <option value="Honorer">Honorer</option>
+                </select>
+              </div>
+            </div>
+            <div class="pegawai-form-actions">
+              <button id="savePegawaiBtn" class="primary-btn" type="button">Simpan</button>
+              <button id="cancelPegawaiBtn" class="ghost-btn" type="button">Batal</button>
+            </div>
+            <input id="pegawaiEditId" type="hidden" />
+          </div>
+
+          <div class="filter-card">
+            <div class="search-wrap">
+              <label for="pegawaiSearchInput">Cari nama</label>
+              <input id="pegawaiSearchInput" type="search" placeholder="Ketik nama pegawai..." />
+            </div>
+            <div>
+              <label for="pegawaiBidangFilter">Bidang</label>
+              <select id="pegawaiBidangFilter">
+                <option value="ALL">Semua bidang</option>
+                <option value="SEKRETARIAT">SEKRETARIAT</option>
+                <option value="PENDAPATAN 1">PENDAPATAN 1</option>
+                <option value="PENDAPATAN 2">PENDAPATAN 2</option>
+                <option value="ASET 1">ASET 1</option>
+                <option value="ASET 2">ASET 2</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="pegawaiList" class="employee-list"></div>
         </section>
 
         <section id="historyView" class="view-panel hidden">
@@ -218,5 +288,11 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js');
+      }
+    </script>
   </body>
 </html>

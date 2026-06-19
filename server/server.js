@@ -347,19 +347,30 @@ app.get("/api/pegawai", async (req, res) => {
  */
 app.post("/api/pegawai", async (req, res) => {
   try {
-    const { id, nama, bidang, jenis, urutan } = req.body;
-    if (!id || !nama || !bidang) {
-      return res.status(400).json({ ok: false, error: "id, nama, and bidang are required" });
+    const { nama, bidang, jenis, urutan } = req.body;
+    let { id } = req.body;
+    if (!nama || !bidang) {
+      return res.status(400).json({ ok: false, error: "nama and bidang are required" });
+    }
+
+    if (!id) {
+      const prefix = "PEG";
+      const { rows } = await pool.query(
+        "select id from absen_pegawai where id like $1 order by id desc limit 1",
+        [prefix + "%"]
+      );
+      const lastNum = rows.length ? parseInt(rows[0].id.replace(prefix, ""), 10) || 0 : 0;
+      id = prefix + String(lastNum + 1).padStart(3, "0");
     }
 
     await pool.query(
-      `insert into absen_pegawai (id, nama, bidang, jenis, urutan)
-       values ($1, $2, $3, $4, $5)
+      `insert into absen_pegawai (id, nama, bidang, jenis, urutan, is_active)
+       values ($1, $2, $3, $4, $5, true)
        on conflict (id) do update set nama = $2, bidang = $3, jenis = $4, urutan = $5, updated_at = now()`,
       [String(id).trim(), nama.trim(), bidang.trim(), (jenis || "ASN").trim(), urutan || 0]
     );
 
-    res.json({ ok: true });
+    res.json({ ok: true, id });
   } catch (err) {
     console.error("post pegawai error", err);
     res.status(500).json({ ok: false, error: err.message });

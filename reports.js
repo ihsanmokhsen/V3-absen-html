@@ -262,10 +262,90 @@
     doc.save(`rekap_bulanan_${fileSafeDate(month)}.pdf`);
   }
 
+  function exportDetailMonthlyExcel({ month, monthLabel, scope, totalDays, days }) {
+    const XLSX = requireExcel();
+    const workbook = XLSX.utils.book_new();
+
+    const sheetRows = [
+      ["Detail Kehadiran Bulanan — BPAD Provinsi NTT"],
+      ["Bulan", monthLabel],
+      ["Scope", scope],
+      ["Jumlah hari absensi", totalDays],
+      []
+    ];
+
+    days.forEach((day) => {
+      sheetRows.push([day.dateLabel]);
+      sheetRows.push(["Hadir", day.summary.Hadir, "Kurang", day.summary.Kurang]);
+      if (day.absentRows.length) {
+        sheetRows.push(["No", "Nama", "Bidang", "Status"]);
+        day.absentRows.forEach((row, idx) => {
+          sheetRows.push([idx + 1, row.displayName, row.bidang, row.status]);
+        });
+      } else {
+        sheetRows.push(["Semua hadir"]);
+      }
+      sheetRows.push([]);
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet(sheetRows);
+    worksheet["!cols"] = [{ wch: 6 }, { wch: 38 }, { wch: 22 }, { wch: 14 }];
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Detail Bulanan");
+    XLSX.writeFile(workbook, `detail_bulanan_${fileSafeDate(month)}.xlsx`);
+  }
+
+  async function exportDetailMonthlyPdf({ month, monthLabel, scope, totalDays, days }) {
+    const jsPDF = requirePdf();
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const logo = await loadImageAsDataUrl("logontt.png");
+
+    addReportHeader(doc, "Detail Kehadiran Bulanan", `${monthLabel} | ${scope} | ${totalDays} hari absensi`, logo);
+
+    let y = 56;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    for (const day of days) {
+      if (y > pageHeight - 30) {
+        doc.addPage("a4", "landscape");
+        y = 18;
+      }
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(day.dateLabel, 14, y);
+      y += 5;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(`Hadir: ${day.summary.Hadir}   Kurang: ${day.summary.Kurang}`, 14, y);
+      y += 6;
+
+      if (day.absentRows.length) {
+        y = addSimpleTable(
+          doc,
+          ["No", "Nama", "Bidang", "Status"],
+          day.absentRows.map((row, idx) => [idx + 1, row.displayName, row.bidang, row.status]),
+          y,
+          { widths: [12, 90, 60, 40], rowHeight: 7, fontSize: 7 }
+        );
+      } else {
+        doc.setFont("helvetica", "italic");
+        doc.text("Semua hadir.", 14, y);
+        y += 6;
+      }
+      y += 4;
+    }
+
+    doc.save(`detail_bulanan_${fileSafeDate(month)}.pdf`);
+  }
+
   window.ReportExporter = {
     exportDailyExcel,
     exportDailyPdf,
     exportMonthlyExcel,
-    exportMonthlyPdf
+    exportMonthlyPdf,
+    exportDetailMonthlyExcel,
+    exportDetailMonthlyPdf
   };
 })();

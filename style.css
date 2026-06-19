@@ -308,7 +308,7 @@ select:focus {
   top: 105px;
   z-index: 9;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 16px;
   padding: 7px;
@@ -648,6 +648,38 @@ th {
 }
 
 /* Monthly detail — day cards */
+
+/* Pegawai management */
+.pegawai-form-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.pegawai-form-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.pegawai-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.pegawai-card-actions .ghost-btn,
+.pegawai-card-actions .secondary-btn {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.8rem;
+}
+
+.inactive-badge {
+  color: #a92222;
+  background: rgba(169, 34, 34, 0.1);
+}
+
 .day-groups {
   display: flex;
   flex-direction: column;
@@ -812,6 +844,10 @@ th {
     padding: 0 18px;
   }
 
+  .pegawai-form-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
   .summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -943,7 +979,7 @@ th {
     border-bottom: none;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
     backdrop-filter: blur(24px);
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .tab-btn {

@@ -307,10 +307,11 @@
   // Pegawai (employee master data)
   // -------------------------------------------------------------------------
 
-  async function getPegawai(bidang) {
+  async function getPegawai(bidang, activeOnly) {
     try {
       var params = {};
       if (bidang) params.bidang = bidang;
+      if (activeOnly === false) params.active_only = "false";
       var result = await apiGet("/pegawai", params);
       return { ok: !!result.ok, error: result.error, data: result.data || [] };
     } catch (error) {

@@ -86,6 +86,7 @@
         daily: document.getElementById("dailyView"),
         monthly: document.getElementById("monthlyView"),
         monthlyDetail: document.getElementById("monthlyDetailView"),
+        pegawai: document.getElementById("pegawaiView"),
         history: document.getElementById("historyView")
       },
       attendanceDate: document.getElementById("attendanceDate"),
@@ -112,6 +113,21 @@
       monthlyDetailContent: document.getElementById("monthlyDetailContent"),
       exportMonthlyExcelBtn: document.getElementById("exportMonthlyExcelBtn"),
       exportMonthlyPdfBtn: document.getElementById("exportMonthlyPdfBtn"),
+      exportDetailExcelBtn: document.getElementById("exportDetailExcelBtn"),
+      exportDetailPdfBtn: document.getElementById("exportDetailPdfBtn"),
+      addPegawaiBtn: document.getElementById("addPegawaiBtn"),
+      pegawaiFormCard: document.getElementById("pegawaiFormCard"),
+      pegawaiFormTitle: document.getElementById("pegawaiFormTitle"),
+      pegawaiNama: document.getElementById("pegawaiNama"),
+      pegawaiBidang: document.getElementById("pegawaiBidang"),
+      pegawaiJenis: document.getElementById("pegawaiJenis"),
+      savePegawaiBtn: document.getElementById("savePegawaiBtn"),
+      cancelPegawaiBtn: document.getElementById("cancelPegawaiBtn"),
+      pegawaiEditId: document.getElementById("pegawaiEditId"),
+      pegawaiSearchInput: document.getElementById("pegawaiSearchInput"),
+      pegawaiBidangFilter: document.getElementById("pegawaiBidangFilter"),
+      pegawaiMeta: document.getElementById("pegawaiMeta"),
+      pegawaiList: document.getElementById("pegawaiList"),
       historyList: document.getElementById("historyList"),
       toast: document.getElementById("toast")
     });
@@ -175,6 +191,15 @@
     dom.exportDailyPdfBtn.addEventListener("click", () => exportDaily("pdf"));
     dom.exportMonthlyExcelBtn.addEventListener("click", () => exportMonthly("excel"));
     dom.exportMonthlyPdfBtn.addEventListener("click", () => exportMonthly("pdf"));
+    dom.exportDetailExcelBtn.addEventListener("click", () => exportDetailMonthly("excel"));
+    dom.exportDetailPdfBtn.addEventListener("click", () => exportDetailMonthly("pdf"));
+
+    dom.addPegawaiBtn.addEventListener("click", handleShowAddPegawai);
+    dom.savePegawaiBtn.addEventListener("click", handleSavePegawai);
+    dom.cancelPegawaiBtn.addEventListener("click", handleCancelPegawaiForm);
+    dom.pegawaiSearchInput.addEventListener("input", () => renderPegawai());
+    dom.pegawaiBidangFilter.addEventListener("change", () => renderPegawai());
+    dom.pegawaiList.addEventListener("click", handlePegawaiListClick);
 
     dom.historyList.addEventListener("click", (event) => {
       const button = event.target.closest("[data-open-report]");
@@ -422,6 +447,7 @@
     populateFieldFilter();
     loadCurrentAttendance();
     renderAll();
+    updatePegawaiTabVisibility();
     void hydrateScopedDataFromSupabase(state.currentDate, { silent: true });
   }
 
@@ -430,13 +456,14 @@
     if (!sync || typeof sync.getPegawai !== "function") return;
 
     try {
-      const result = await sync.getPegawai();
+      const result = await sync.getPegawai(null, false);
       if (result.ok && Array.isArray(result.data) && result.data.length) {
         window.PEGAWAI = result.data.map((p) => ({
           id: p.id,
           nama: p.nama,
           bidang: p.bidang,
-          jenis: p.jenis || "ASN"
+          jenis: p.jenis || "ASN",
+          is_active: p.is_active !== undefined ? p.is_active : true
         }));
       }
     } catch (error) {
@@ -459,6 +486,7 @@
     if (tab === "daily") renderDaily();
     if (tab === "monthly") renderMonthly();
     if (tab === "monthlyDetail") renderMonthlyDetail();
+    if (tab === "pegawai") renderPegawai();
     if (tab === "history") {
       renderHistory();
       void hydrateScopedDataFromSupabase(state.currentDate, { silent: true });
@@ -944,6 +972,54 @@
     }
   }
 
+  function buildDetailMonthlyData() {
+    const employees = getScopedEmployees();
+    const dates = enumerateMonthDates(state.currentMonth);
+    const datesWithData = dates.filter((date) => hasMonthlyDataForScope(date));
+
+    const days = datesWithData.map((date) => {
+      const rows = employees.map((employee) => ({
+        ...employee,
+        displayName: displayName(employee),
+        status: getMonthlyStatusForEmployee(date, employee) || "Belum Diabsen"
+      }));
+      const summary = calculateSummary(rows);
+      const absentRows = rows.filter((row) => row.status !== "Hadir" && row.status !== "Belum Diabsen");
+      return {
+        date,
+        dateLabel: formatDate(date),
+        summary,
+        absentRows
+      };
+    });
+
+    return {
+      month: state.currentMonth,
+      monthLabel: formatMonth(state.currentMonth),
+      scope: currentScope(),
+      totalDays: datesWithData.length,
+      days
+    };
+  }
+
+  async function exportDetailMonthly(type) {
+    const data = buildDetailMonthlyData();
+    if (!data.totalDays) {
+      showToast("Belum ada data absensi pada bulan ini.");
+      return;
+    }
+
+    try {
+      if (type === "excel") {
+        window.ReportExporter.exportDetailMonthlyExcel(data);
+      } else {
+        await window.ReportExporter.exportDetailMonthlyPdf(data);
+      }
+    } catch (error) {
+      showToast(error.message);
+    }
+  }
+
   function summaryCards(summary) {
     const cards = [
       ["Total", summary.Total, "total"],
@@ -984,13 +1060,13 @@
   }
 
   function getScopedEmployees() {
-    if (currentScope() === "ALL") return window.PEGAWAI;
-    return window.PEGAWAI.filter((employee) => employee.bidang === currentScope());
+    return getEmployeesForScope(currentScope());
   }
 
   function getEmployeesForScope(scope) {
-    if (scope === "ALL") return window.PEGAWAI;
-    return window.PEGAWAI.filter((employee) => employee.bidang === scope);
+    const active = (window.PEGAWAI || []).filter((p) => p.is_active !== false && p.is_active !== 0);
+    if (scope === "ALL") return active;
+    return active.filter((employee) => employee.bidang === scope);
   }
 
   function displayName(employee) {
@@ -1438,5 +1514,172 @@
       behavior: "smooth",
       block: "start"
     });
+  }
+
+  // ─────────────────────────────────────────────
+  // Pegawai management (admin ALL only)
+  // ─────────────────────────────────────────────
+
+  function updatePegawaiTabVisibility() {
+    const pegawaiTabBtn = dom.tabButtons.find((btn) => btn.dataset.tab === "pegawai");
+    if (!pegawaiTabBtn) return;
+    const isAdmin = currentScope() === "ALL";
+    pegawaiTabBtn.classList.toggle("hidden", !isAdmin);
+  }
+
+  function renderPegawai() {
+    if (currentScope() !== "ALL") return;
+    const allPegawai = window.PEGAWAI || [];
+    const query = normalizeText(dom.pegawaiSearchInput.value || "");
+    const bidangFilter = dom.pegawaiBidangFilter.value;
+
+    const filtered = allPegawai.filter((p) => {
+      const matchesSearch = !query || normalizeText(p.nama).includes(query) || normalizeText(p.bidang).includes(query);
+      const matchesBidang = bidangFilter === "ALL" || p.bidang === bidangFilter;
+      return matchesSearch && matchesBidang;
+    });
+
+    dom.pegawaiMeta.textContent = `${filtered.length} dari ${allPegawai.length} pegawai`;
+
+    if (!filtered.length) {
+      dom.pegawaiList.innerHTML = emptyState("Tidak ada pegawai ditemukan.");
+      return;
+    }
+
+    dom.pegawaiList.innerHTML = filtered
+      .map((p) => {
+        const isActive = p.is_active !== false && p.is_active !== 0;
+        const activeBadge = isActive
+          ? `<span class="status-badge present">Aktif</span>`
+          : `<span class="status-badge inactive-badge">Nonaktif</span>`;
+        return `
+          <article class="employee-card">
+            <div class="employee-main">
+              <div>
+                <h3>${escapeHtml(p.nama)}</h3>
+                <p>${escapeHtml(p.bidang)} | ${escapeHtml(p.jenis || "ASN")}</p>
+              </div>
+              ${activeBadge}
+            </div>
+            <div class="pegawai-card-actions">
+              <button class="secondary-btn" type="button" data-pegawai-edit="${escapeHtml(String(p.id))}">Edit</button>
+              <button class="ghost-btn ${isActive ? "danger" : ""}" type="button" data-pegawai-toggle="${escapeHtml(String(p.id))}">
+                ${isActive ? "Nonaktifkan" : "Aktifkan"}
+              </button>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
+  function handleShowAddPegawai() {
+    dom.pegawaiFormCard.classList.remove("hidden");
+    dom.pegawaiFormTitle.textContent = "Tambah Pegawai";
+    dom.pegawaiNama.value = "";
+    dom.pegawaiBidang.value = "SEKRETARIAT";
+    dom.pegawaiJenis.value = "ASN";
+    dom.pegawaiEditId.value = "";
+    dom.pegawaiNama.focus();
+  }
+
+  function handleShowEditPegawai(id) {
+    const pegawai = (window.PEGAWAI || []).find((p) => String(p.id) === String(id));
+    if (!pegawai) return;
+    dom.pegawaiFormCard.classList.remove("hidden");
+    dom.pegawaiFormTitle.textContent = "Edit Pegawai";
+    dom.pegawaiNama.value = pegawai.nama || "";
+    dom.pegawaiBidang.value = pegawai.bidang || "SEKRETARIAT";
+    dom.pegawaiJenis.value = pegawai.jenis || "ASN";
+    dom.pegawaiEditId.value = String(pegawai.id);
+    dom.pegawaiNama.focus();
+  }
+
+  function handleCancelPegawaiForm() {
+    dom.pegawaiFormCard.classList.add("hidden");
+    dom.pegawaiEditId.value = "";
+  }
+
+  async function handleSavePegawai() {
+    const nama = (dom.pegawaiNama.value || "").trim();
+    const bidang = dom.pegawaiBidang.value;
+    const jenis = dom.pegawaiJenis.value;
+    const editId = dom.pegawaiEditId.value;
+
+    if (!nama) {
+      showToast("Nama wajib diisi.");
+      return;
+    }
+
+    const sync = getSupabaseSync();
+    if (!sync) {
+      showToast("Server tidak tersedia.");
+      return;
+    }
+
+    try {
+      if (editId) {
+        const result = await sync.updatePegawai(editId, { nama, bidang, jenis });
+        if (!result.ok) {
+          showToast(result.error || "Gagal memperbarui pegawai.");
+          return;
+        }
+        showToast("Pegawai berhasil diperbarui.");
+      } else {
+        const result = await sync.addPegawai({ nama, bidang, jenis });
+        if (!result.ok) {
+          showToast(result.error || "Gagal menambah pegawai.");
+          return;
+        }
+        showToast("Pegawai berhasil ditambahkan.");
+      }
+
+      handleCancelPegawaiForm();
+      await loadPegawaiFromServer();
+      renderPegawai();
+      populateFieldFilter();
+    } catch (error) {
+      showToast(error.message);
+    }
+  }
+
+  async function handleTogglePegawai(id) {
+    const pegawai = (window.PEGAWAI || []).find((p) => String(p.id) === String(id));
+    if (!pegawai) return;
+
+    const isActive = pegawai.is_active !== false && pegawai.is_active !== 0;
+    const action = isActive ? "menonaktifkan" : "mengaktifkan";
+    if (!window.confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${pegawai.nama}?`)) return;
+
+    const sync = getSupabaseSync();
+    if (!sync) {
+      showToast("Server tidak tersedia.");
+      return;
+    }
+
+    try {
+      const result = await sync.updatePegawai(id, { is_active: !isActive });
+      if (!result.ok) {
+        showToast(result.error || "Gagal mengubah status pegawai.");
+        return;
+      }
+      showToast(`Pegawai berhasil ${isActive ? "dinonaktifkan" : "diaktifkan"}.`);
+      await loadPegawaiFromServer();
+      renderPegawai();
+    } catch (error) {
+      showToast(error.message);
+    }
+  }
+
+  function handlePegawaiListClick(event) {
+    const editBtn = event.target.closest("[data-pegawai-edit]");
+    if (editBtn) {
+      handleShowEditPegawai(editBtn.dataset.pegawaiEdit);
+      return;
+    }
+    const toggleBtn = event.target.closest("[data-pegawai-toggle]");
+    if (toggleBtn) {
+      handleTogglePegawai(toggleBtn.dataset.pegawaiToggle);
+    }
   }
 })();
