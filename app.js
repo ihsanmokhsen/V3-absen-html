@@ -1546,31 +1546,84 @@
       return;
     }
 
-    dom.pegawaiList.innerHTML = filtered
-      .map((p) => {
-        const isActive = p.is_active !== false && p.is_active !== 0;
-        const activeBadge = isActive
-          ? `<span class="status-badge present">Aktif</span>`
-          : `<span class="status-badge inactive-badge">Nonaktif</span>`;
-        return `
-          <article class="employee-card">
-            <div class="employee-main">
-              <div>
-                <h3>${escapeHtml(p.nama)}</h3>
-                <p>${escapeHtml(p.bidang)} | ${escapeHtml(p.jenis || "ASN")}</p>
-              </div>
-              ${activeBadge}
+    const bidangOrder = ["SEKRETARIAT", "PENDAPATAN 1", "PENDAPATAN 2", "ASET 1", "ASET 2"];
+    const grouped = {};
+    filtered.forEach((p) => {
+      const b = p.bidang || "Lainnya";
+      if (!grouped[b]) grouped[b] = [];
+      grouped[b].push(p);
+    });
+
+    const sortedBidangs = Object.keys(grouped).sort((a, b) => {
+      const ai = bidangOrder.indexOf(a);
+      const bi = bidangOrder.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+
+    function cardHtml(p) {
+      const isActive = p.is_active !== false && p.is_active !== 0;
+      const activeBadge = isActive
+        ? `<span class="status-badge present">Aktif</span>`
+        : `<span class="status-badge inactive-badge">Nonaktif</span>`;
+      return `
+        <article class="employee-card">
+          <div class="employee-main">
+            <div>
+              <h3>${escapeHtml(p.nama)}</h3>
+              <p>${escapeHtml(p.jenis || "ASN")}</p>
             </div>
-            <div class="pegawai-card-actions">
-              <button class="secondary-btn" type="button" data-pegawai-edit="${escapeHtml(String(p.id))}">Edit</button>
-              <button class="ghost-btn ${isActive ? "danger" : ""}" type="button" data-pegawai-toggle="${escapeHtml(String(p.id))}">
-                ${isActive ? "Nonaktifkan" : "Aktifkan"}
-              </button>
-            </div>
-          </article>
-        `;
-      })
-      .join("");
+            ${activeBadge}
+          </div>
+          <div class="pegawai-card-actions">
+            <button class="secondary-btn" type="button" data-pegawai-edit="${escapeHtml(String(p.id))}">Edit</button>
+            <button class="ghost-btn ${isActive ? "danger" : ""}" type="button" data-pegawai-toggle="${escapeHtml(String(p.id))}">
+              ${isActive ? "Nonaktifkan" : "Aktifkan"}
+            </button>
+          </div>
+        </article>
+      `;
+    }
+
+    const sections = sortedBidangs.map((bidang) => {
+      const members = grouped[bidang];
+      const asn = members.filter((p) => (p.jenis || "ASN") === "ASN");
+      const pppk = members.filter((p) => p.jenis === "PPPK");
+      const lainnya = members.filter((p) => p.jenis !== "PPPK" && (p.jenis || "ASN") !== "ASN");
+
+      let subSections = "";
+      if (asn.length) {
+        subSections += `
+          <div class="pegawai-jenis-group">
+            <h4 class="pegawai-jenis-label">ASN (${asn.length})</h4>
+            <div class="employee-list">${asn.map(cardHtml).join("")}</div>
+          </div>`;
+      }
+      if (pppk.length) {
+        subSections += `
+          <div class="pegawai-jenis-group">
+            <h4 class="pegawai-jenis-label">PPPK (${pppk.length})</h4>
+            <div class="employee-list">${pppk.map(cardHtml).join("")}</div>
+          </div>`;
+      }
+      if (lainnya.length) {
+        subSections += `
+          <div class="pegawai-jenis-group">
+            <h4 class="pegawai-jenis-label">Lainnya (${lainnya.length})</h4>
+            <div class="employee-list">${lainnya.map(cardHtml).join("")}</div>
+          </div>`;
+      }
+
+      return `
+        <div class="pegawai-bidang-section">
+          <h3 class="pegawai-bidang-title">${escapeHtml(bidang)} <span class="muted">(${members.length})</span></h3>
+          ${subSections}
+        </div>`;
+    });
+
+    dom.pegawaiList.innerHTML = sections.join("");
   }
 
   function handleShowAddPegawai() {
