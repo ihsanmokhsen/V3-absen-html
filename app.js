@@ -1,3 +1,6 @@
+// Ensure PEGAWAI array exists even before API loads (data.js removed from production)
+window.PEGAWAI = window.PEGAWAI || [];
+
 (function () {
   const {
     STATUS_CONFIG,
