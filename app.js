@@ -581,19 +581,14 @@ window.PEGAWAI = window.PEGAWAI || [];
 
   function updateEmployeeCardUi(triggerButton, status) {
     if (!triggerButton) return;
-    const card = triggerButton.closest(".employee-card");
-    if (!card) return;
+    const row = triggerButton.closest(".employee-row");
+    if (!row) return;
 
-    const buttons = card.querySelectorAll(".status-btn");
+    const buttons = row.querySelectorAll(".status-btn");
     buttons.forEach((button) => {
       const isActive = button.dataset.status === status;
       button.classList.toggle("active", isActive);
     });
-
-    const badge = card.querySelector(".status-badge");
-    if (!badge) return;
-    badge.textContent = status;
-    badge.className = `status-badge ${statusTone(status)}`;
   }
 
   function handleSaveReport() {
@@ -731,27 +726,28 @@ window.PEGAWAI = window.PEGAWAI || [];
     }
 
     dom.employeeList.innerHTML = filteredRows
-      .map((employee) => {
+      .map((employee, idx) => {
         const statusButtons = STATUS_CONFIG.map((status) => {
           const active = employee.status === status.key ? "active" : "";
           const disabled = locked ? "disabled" : "";
           return `
             <button class="status-btn ${status.tone} ${active}" type="button" data-employee-id="${escapeHtml(employee.id)}" data-status="${escapeHtml(status.key)}" ${disabled}>
-              ${escapeHtml(status.label)}
+              <span class="btn-full">${escapeHtml(status.label)}</span>
+              <span class="btn-short">${escapeHtml(status.short)}</span>
             </button>
           `;
         }).join("");
 
         return `
-          <article class="employee-card">
-            <div class="employee-main">
-              <div>
-                <h3>${escapeHtml(displayName(employee))}</h3>
-                <p>${escapeHtml(employee.bidang)} | ${escapeHtml(employee.jenis)}</p>
+          <article class="employee-row">
+            <div class="row-info">
+              <span class="row-num">${idx + 1}</span>
+              <div class="row-name">
+                <strong>${escapeHtml(employee.nama)}</strong>
+                <span class="row-meta">${escapeHtml(employee.bidang)}${employee.jenis === "PPPK" ? " · PPPK" : ""}</span>
               </div>
-              <span class="status-badge ${statusTone(employee.status)}">${escapeHtml(employee.status)}</span>
             </div>
-            <div class="status-grid">
+            <div class="row-actions">
               ${statusButtons}
             </div>
           </article>
@@ -1066,10 +1062,17 @@ window.PEGAWAI = window.PEGAWAI || [];
     return getEmployeesForScope(currentScope());
   }
 
+  const BIDANG_ORDER = { "SEKRETARIAT": 0, "PENDAPATAN 1": 1, "PENDAPATAN 2": 2, "ASET 1": 3, "ASET 2": 4 };
+  const JENIS_ORDER = { "ASN": 0, "PPPK": 1, "Honorer": 2 };
+
   function getEmployeesForScope(scope) {
     const active = (window.PEGAWAI || []).filter((p) => p.is_active !== false && p.is_active !== 0);
-    if (scope === "ALL") return active;
-    return active.filter((employee) => employee.bidang === scope);
+    const filtered = scope === "ALL" ? active : active.filter((employee) => employee.bidang === scope);
+    return filtered.sort((a, b) => {
+      const bidangDiff = (BIDANG_ORDER[a.bidang] ?? 99) - (BIDANG_ORDER[b.bidang] ?? 99);
+      if (bidangDiff !== 0) return bidangDiff;
+      return (JENIS_ORDER[a.jenis] ?? 99) - (JENIS_ORDER[b.jenis] ?? 99);
+    });
   }
 
   function displayName(employee) {
@@ -1511,8 +1514,8 @@ window.PEGAWAI = window.PEGAWAI || [];
 
   function scrollToEmployeeList() {
     if (!dom.employeeList) return;
-    const firstEmployeeCard = dom.employeeList.querySelector(".employee-card");
-    const target = firstEmployeeCard || dom.employeeList;
+    const firstRow = dom.employeeList.querySelector(".employee-row");
+    const target = firstRow || dom.employeeList;
     target.scrollIntoView({
       behavior: "smooth",
       block: "start"
