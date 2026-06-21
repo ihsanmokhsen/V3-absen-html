@@ -1,4 +1,4 @@
-const CACHE_NAME = "bpad-absensi-v20260616-1";
+const CACHE_NAME = "bpad-absensi-v20260616-2";
 
 const PRECACHE_URLS = [
   "/",
@@ -67,15 +67,16 @@ self.addEventListener("fetch", (event) => {
   }
 
   // All other assets: cache-first with network fallback
+  // Strip query string for cache lookup so cache-busted URLs still hit the precache
   event.respondWith(
-    caches.match(event.request).then((cached) => {
+    caches.match(event.request.url, { ignoreSearch: true }).then((cached) => {
       if (cached) return cached;
       return fetch(event.request).then((response) => {
         // Cache successful responses for future offline use
         if (response.ok && event.request.method === "GET") {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, clone);
+            cache.put(event.request.url, clone);
           });
         }
         return response;
