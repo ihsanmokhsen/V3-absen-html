@@ -48,9 +48,6 @@ window.PEGAWAI = window.PEGAWAI || [];
   };
 
   const dom = {};
-  let persistAttendanceTimer = null;
-  let supabaseAttendanceSyncTimer = null;
-  let syncErrorToastAt = 0;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
@@ -187,7 +184,7 @@ window.PEGAWAI = window.PEGAWAI || [];
     dom.employeeList.addEventListener("click", (event) => {
       const button = event.target.closest("[data-status][data-employee-id]");
       if (!button) return;
-      setEmployeeStatus(button.dataset.employeeId, button.dataset.status, button);
+      void setEmployeeStatus(button.dataset.employeeId, button.dataset.status, button);
     });
 
     dom.exportDailyExcelBtn.addEventListener("click", () => exportDaily("excel"));
@@ -403,35 +400,19 @@ window.PEGAWAI = window.PEGAWAI || [];
     }
   }
 
-  function showSupabaseSyncError(message) {
-    const now = Date.now();
-    if (now - syncErrorToastAt < 5000) return;
-    syncErrorToastAt = now;
-    showToast(`Server: ${message}`);
-  }
-
-  function queueAttendanceSync(record) {
+  async function hydrateMonthDataFromServer(monthString) {
     if (!isSupabaseConfigured()) return;
     const sync = getSupabaseSync();
-    const payload = {
-      ...record,
-      date: record.date || state.currentDate,
-      scope: record.scope || currentScope(),
-      admin: record.admin || getAdminName(),
-      updatedAt: new Date().toISOString()
-    };
+    if (typeof sync.pullAttendancesForMonth !== "function") return;
 
-    window.clearTimeout(supabaseAttendanceSyncTimer);
-    supabaseAttendanceSyncTimer = window.setTimeout(async () => {
-      try {
-        const result = await sync.upsertAttendance(payload);
-        if (!result.ok && !result.skipped) {
-          showSupabaseSyncError(result.error || "gagal sync attendance.");
-        }
-      } catch (error) {
-        showSupabaseSyncError(error.message || "gagal sync attendance.");
+    try {
+      const result = await sync.pullAttendancesForMonth(currentScope(), monthString);
+      if (result.ok) {
+        mergeRemoteAttendances(result.attendances || []);
       }
-    }, 300);
+    } catch (error) {
+      console.warn("Failed to hydrate month data:", error);
+    }
   }
 
   function showLogin() {
@@ -448,10 +429,11 @@ window.PEGAWAI = window.PEGAWAI || [];
 
     await loadPegawaiFromServer();
     populateFieldFilter();
+    updatePegawaiTabVisibility();
+    // Load current date data from server first, then render
+    await hydrateScopedDataFromSupabase(state.currentDate, { silent: true });
     loadCurrentAttendance();
     renderAll();
-    updatePegawaiTabVisibility();
-    void hydrateScopedDataFromSupabase(state.currentDate, { silent: true });
   }
 
   async function loadPegawaiFromServer() {
@@ -486,9 +468,20 @@ window.PEGAWAI = window.PEGAWAI || [];
       view.classList.toggle("hidden", key !== tab);
     });
 
-    if (tab === "daily") renderDaily();
-    if (tab === "monthly") renderMonthly();
-    if (tab === "monthlyDetail") renderMonthlyDetail();
+    if (tab === "attendance") {
+      renderAll();
+      void hydrateScopedDataFromSupabase(state.currentDate, { silent: true });
+    }
+    if (tab === "daily") {
+      renderDaily();
+      void hydrateScopedDataFromSupabase(state.currentDate, { silent: true });
+    }
+    if (tab === "monthly") {
+      void hydrateMonthDataFromServer(state.currentMonth).then(() => renderMonthly());
+    }
+    if (tab === "monthlyDetail") {
+      void hydrateMonthDataFromServer(state.currentMonth).then(() => renderMonthlyDetail());
+    }
     if (tab === "pegawai") renderPegawai();
     if (tab === "history") {
       renderHistory();
@@ -510,7 +503,7 @@ window.PEGAWAI = window.PEGAWAI || [];
     state.attendanceRecord = readScopedAttendance(state.currentDate);
   }
 
-  function ensureAttendanceStarted() {
+  async function ensureAttendanceStarted() {
     if (isDateLocked()) return;
     if (!state.attendanceRecord) {
       const employees = getScopedEmployees();
@@ -522,11 +515,11 @@ window.PEGAWAI = window.PEGAWAI || [];
         updatedAt: new Date().toISOString(),
         attendance: Object.fromEntries(employees.map((employee) => [employee.id, "Hadir"]))
       };
-      saveScopedAttendance(state.currentDate, state.attendanceRecord);
+      await saveScopedAttendance(state.currentDate, state.attendanceRecord);
     }
   }
 
-  function handleStartAttendance() {
+  async function handleStartAttendance() {
     if (isDateLocked()) {
       showToast(lockMessage());
       return;
@@ -545,38 +538,30 @@ window.PEGAWAI = window.PEGAWAI || [];
       updatedAt: new Date().toISOString(),
       attendance: Object.fromEntries(employees.map((employee) => [employee.id, "Hadir"]))
     };
-    saveScopedAttendance(state.currentDate, state.attendanceRecord);
+    await saveScopedAttendance(state.currentDate, state.attendanceRecord);
     renderAll();
     scrollToEmployeeList();
-    showToast("Absensi dimulai.");
+    showToast("Absensi dimulai dan tersimpan ke server.");
   }
 
-  function setEmployeeStatus(employeeId, status, triggerButton) {
+  async function setEmployeeStatus(employeeId, status, triggerButton) {
     if (isDateLocked()) {
       showToast(lockMessage());
       return;
     }
 
-    ensureAttendanceStarted();
+    await ensureAttendanceStarted();
     if (!state.attendanceRecord) return;
     state.attendanceRecord.attendance[employeeId] = status;
     state.attendanceRecord.admin = getAdminName();
 
     updateEmployeeCardUi(triggerButton, status);
     renderAttendanceSummary();
-    schedulePersistAttendance();
+    await saveScopedAttendance(state.currentDate, state.attendanceRecord);
 
     if (state.activeTab === "daily") renderDaily();
     if (state.activeTab === "monthly") renderMonthly();
     if (state.activeTab === "history") renderHistory();
-  }
-
-  function schedulePersistAttendance() {
-    window.clearTimeout(persistAttendanceTimer);
-    persistAttendanceTimer = window.setTimeout(() => {
-      if (!state.attendanceRecord) return;
-      saveScopedAttendance(state.currentDate, state.attendanceRecord);
-    }, 220);
   }
 
   function updateEmployeeCardUi(triggerButton, status) {
@@ -591,15 +576,14 @@ window.PEGAWAI = window.PEGAWAI || [];
     });
   }
 
-  function handleSaveReport() {
+  async function handleSaveReport() {
     if (isDateLocked()) {
       showToast(lockMessage());
       return;
     }
 
     if (state.attendanceRecord) {
-      window.clearTimeout(persistAttendanceTimer);
-      saveScopedAttendance(state.currentDate, state.attendanceRecord);
+      await saveScopedAttendance(state.currentDate, state.attendanceRecord);
     }
 
     const daily = getDailyData();
@@ -624,7 +608,7 @@ window.PEGAWAI = window.PEGAWAI || [];
       `Tubel: ${daily.summary.Tubel}`
     ].join("\n");
 
-    const confirmed = window.confirm(`Konfirmasi Simpan Laporan\n\n${summaryText}\n\nSimpan ke perangkat sekarang? (akan sync ke server jika aktif)`);
+    const confirmed = window.confirm(`Konfirmasi Simpan Laporan\n\n${summaryText}\n\nSimpan ke database sekarang?`);
     if (!confirmed) {
       showToast("Penyimpanan dibatalkan.");
       return;
@@ -640,14 +624,19 @@ window.PEGAWAI = window.PEGAWAI || [];
       notes: daily.notedRows
     };
 
-    saveScopedReport(state.currentDate, report);
+    const saveOk = await saveScopedReport(state.currentDate, report);
+    if (!saveOk) {
+      showToast("Gagal menyimpan laporan ke server.");
+      return;
+    }
+
     renderLockState();
     renderSubmitStatus();
     renderHistory();
-    showToast("Laporan harian tersimpan dan dikunci.");
+    showToast("Laporan harian tersimpan ke database.");
   }
 
-  function handleDeleteDateData() {
+  async function handleDeleteDateData() {
     if (!hasOwnScopedData(state.currentDate)) {
       showToast(deleteBlockedMessage());
       return;
@@ -656,11 +645,10 @@ window.PEGAWAI = window.PEGAWAI || [];
     const confirmed = window.confirm(`Hapus data bidang ${currentScope()} pada ${formatDate(state.currentDate)}?`);
     if (!confirmed) return;
 
-    deleteScopedDateData(state.currentDate);
+    await deleteScopedDateData(state.currentDate);
     state.attendanceRecord = null;
-    window.clearTimeout(persistAttendanceTimer);
     renderAll();
-    showToast("Data tanggal ini berhasil dihapus.");
+    showToast("Data tanggal ini berhasil dihapus dari database.");
   }
 
   function renderAll() {
@@ -1193,7 +1181,7 @@ window.PEGAWAI = window.PEGAWAI || [];
     return readAttendanceForScope(date, currentScope());
   }
 
-  function saveScopedAttendance(date, record) {
+  async function saveScopedAttendance(date, record) {
     const key = attendanceKey(scopedDateKey(date, currentScope()));
     const nextRecord = {
       ...record,
@@ -1202,10 +1190,25 @@ window.PEGAWAI = window.PEGAWAI || [];
       admin: getAdminName(),
       updatedAt: new Date().toISOString()
     };
+
+    // Save to server first
+    if (isSupabaseConfigured()) {
+      try {
+        const result = await getSupabaseSync().upsertAttendance(nextRecord);
+        if (!result.ok && !result.skipped) {
+          showToast(`Server: ${result.error || "gagal simpan absensi."}`);
+          return false;
+        }
+      } catch (error) {
+        showToast(`Server: ${error.message || "gagal simpan absensi."}`);
+        return false;
+      }
+    }
+
+    // Cache to localStorage after successful server write
     storageSet(key, JSON.stringify(nextRecord));
     state.attendanceRecord = nextRecord;
-    queueAttendanceSync(nextRecord);
-    return nextRecord;
+    return true;
   }
 
   function readScopedReport(date) {
@@ -1294,7 +1297,7 @@ window.PEGAWAI = window.PEGAWAI || [];
     return "Tidak ada data pada tanggal ini.";
   }
 
-  function saveScopedReport(date, report) {
+  async function saveScopedReport(date, report) {
     const key = reportKey(scopedDateKey(date, currentScope()));
     const nextReport = {
       ...report,
@@ -1303,23 +1306,44 @@ window.PEGAWAI = window.PEGAWAI || [];
       admin: report.admin || getAdminName(),
       updatedAt: new Date().toISOString()
     };
-    storageSet(key, JSON.stringify(nextReport));
+
+    // Save to server first
     if (isSupabaseConfigured()) {
-      getSupabaseSync()
-        .upsertReport(nextReport)
-        .then((result) => {
-          if (!result.ok && !result.skipped) {
-            showSupabaseSyncError(result.error || "gagal sync laporan.");
-          }
-        })
-        .catch((error) => {
-          showSupabaseSyncError(error.message || "gagal sync laporan.");
-        });
+      try {
+        const result = await getSupabaseSync().upsertReport(nextReport);
+        if (!result.ok && !result.skipped) {
+          showToast(`Server: ${result.error || "gagal simpan laporan."}`);
+          return false;
+        }
+      } catch (error) {
+        showToast(`Server: ${error.message || "gagal simpan laporan."}`);
+        return false;
+      }
     }
+
+    // Cache to localStorage after successful server write
+    storageSet(key, JSON.stringify(nextReport));
+    return true;
   }
 
-  function deleteScopedDateData(date) {
+  async function deleteScopedDateData(date) {
     const scope = currentScope();
+
+    // Delete from server first
+    if (isSupabaseConfigured()) {
+      try {
+        const result = await getSupabaseSync().deleteScopeDateData(date, scope);
+        if (!result.ok && !result.skipped) {
+          showToast(`Server: ${result.error || "gagal hapus data remote."}`);
+          return;
+        }
+      } catch (error) {
+        showToast(`Server: ${error.message || "gagal hapus data remote."}`);
+        return;
+      }
+    }
+
+    // Remove from localStorage cache
     const attendanceStorageKey = attendanceKey(scopedDateKey(date, currentScope()));
     const reportStorageKey = reportKey(scopedDateKey(date, currentScope()));
     storageRemove(attendanceStorageKey);
@@ -1327,19 +1351,6 @@ window.PEGAWAI = window.PEGAWAI || [];
 
     if (hasOwnLegacyAttendance(date)) storageRemove(attendanceKey(date));
     if (hasOwnLegacyReport(date)) storageRemove(reportKey(date));
-
-    if (isSupabaseConfigured()) {
-      getSupabaseSync()
-        .deleteScopeDateData(date, scope)
-        .then((result) => {
-          if (!result.ok && !result.skipped) {
-            showSupabaseSyncError(result.error || "gagal hapus data remote.");
-          }
-        })
-        .catch((error) => {
-          showSupabaseSyncError(error.message || "gagal hapus data remote.");
-        });
-    }
   }
 
   function hasOwnScopedData(date) {
