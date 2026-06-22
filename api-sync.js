@@ -5,99 +5,20 @@
  * All operations go through a self-hosted Node.js/Express API backed by PostgreSQL.
  */
 (function () {
-  var DEFAULT_CONFIG = {
-    url: "/api",
-    user: "bpad",
-    pass: ""
-  };
-
-  var CONFIG_KEYS = {
-    url: "api_url",
-    user: "api_user",
-    pass: "api_pass"
-  };
-
   // -------------------------------------------------------------------------
-  // Storage helpers (same as supabase-sync.js)
-  // -------------------------------------------------------------------------
-  function getAppStorageApi() {
-    var utils = window.AppUtils;
-    if (!utils) return null;
-    if (
-      typeof utils.storageGet === "function" &&
-      typeof utils.storageSet === "function" &&
-      typeof utils.storageRemove === "function"
-    ) {
-      return utils;
-    }
-    return null;
-  }
-
-  function safeGet(key) {
-    try {
-      var appStorage = getAppStorageApi();
-      if (appStorage) return appStorage.storageGet(key);
-      return window.localStorage.getItem(key);
-    } catch (error) {
-      return null;
-    }
-  }
-
-  function safeSet(key, value) {
-    try {
-      var appStorage = getAppStorageApi();
-      if (appStorage) {
-        appStorage.storageSet(key, value);
-        return true;
-      }
-      window.localStorage.setItem(key, value);
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
-  function safeRemove(key) {
-    try {
-      var appStorage = getAppStorageApi();
-      if (appStorage) {
-        appStorage.storageRemove(key);
-        return true;
-      }
-      window.localStorage.removeItem(key);
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
-  // -------------------------------------------------------------------------
-  // Config
+  // Config — read ONLY from runtime injected config (no localStorage)
   // -------------------------------------------------------------------------
   function getConfig() {
-    var runtimeConfig = window.__BPAD_API_CONFIG || {};
-    var url = safeGet(CONFIG_KEYS.url) || runtimeConfig.url || DEFAULT_CONFIG.url || "";
-    var user = safeGet(CONFIG_KEYS.user) || runtimeConfig.user || DEFAULT_CONFIG.user || "";
-    var pass = safeGet(CONFIG_KEYS.pass) || runtimeConfig.pass || DEFAULT_CONFIG.pass || "";
-    return { url: url, user: user, pass: pass };
+    var cfg = window.__BPAD_API_CONFIG || {};
+    return {
+      url: cfg.url || "/api",
+      user: cfg.user || "bpad",
+      pass: cfg.pass || ""
+    };
   }
 
   function isConfigured() {
     return !!getConfig().url;
-  }
-
-  function setConfig(url, user, pass) {
-    var cleanUrl = String(url || "").trim();
-    if (!cleanUrl) return false;
-    safeSet(CONFIG_KEYS.user, String(user || "").trim());
-    safeSet(CONFIG_KEYS.pass, String(pass || "").trim());
-    return safeSet(CONFIG_KEYS.url, cleanUrl);
-  }
-
-  function clearConfig() {
-    safeRemove(CONFIG_KEYS.url);
-    safeRemove(CONFIG_KEYS.user);
-    safeRemove(CONFIG_KEYS.pass);
   }
 
   function getMaskedConfig() {
@@ -366,7 +287,6 @@
   window.SupabaseSync = {
     addPegawai: addPegawai,
     changePassword: changePassword,
-    clearConfig: clearConfig,
     deletePegawai: deletePegawai,
     deleteScopeDateData: deleteScopeDateData,
     getConfig: getConfig,
@@ -378,7 +298,6 @@
     pullAttendancesForMonth: pullAttendancesForMonth,
     pullDateData: pullDateData,
     pullReports: pullReports,
-    setConfig: setConfig,
     updatePegawai: updatePegawai,
     upsertAttendance: upsertAttendance,
     upsertReport: upsertReport

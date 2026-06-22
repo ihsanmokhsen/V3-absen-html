@@ -1,11 +1,10 @@
-const CACHE_NAME = "bpad-absensi-v20260616-2";
+const CACHE_NAME = "bpad-absensi-v20260622-1";
 
 const PRECACHE_URLS = [
   "/",
   "/index.html",
   "/style.css",
   "/app.js",
-  "/data.js",
   "/utils.js",
   "/reports.js",
   "/api-config.js",
