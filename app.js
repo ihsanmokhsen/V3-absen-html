@@ -5,22 +5,15 @@ window.PEGAWAI = window.PEGAWAI || [];
   const {
     STATUS_CONFIG,
     STORAGE,
-    attendanceKey,
     calculateSummary,
     escapeHtml,
     formatDate,
     formatDateTime,
     formatMonth,
     normalizeText,
-    reportKey,
     sessionGet,
     sessionRemove,
     sessionSet,
-    storageGet,
-    storageKey,
-    storageLength,
-    storageRemove,
-    storageSet,
     thisMonthInputValue,
     todayInputValue
   } = window.AppUtils;
@@ -48,6 +41,9 @@ window.PEGAWAI = window.PEGAWAI || [];
   };
 
   const dom = {};
+
+  // In-memory cache — replaces localStorage entirely; server is the source of truth
+  const dbCache = { attendance: {}, reports: {}, allReports: [] };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
@@ -204,7 +200,7 @@ window.PEGAWAI = window.PEGAWAI || [];
     dom.historyList.addEventListener("click", (event) => {
       const button = event.target.closest("[data-open-report]");
       if (!button) return;
-      openReportDate(button.dataset.openReport);
+      void openReportDate(button.dataset.openReport);
     });
   }
 
@@ -335,11 +331,11 @@ window.PEGAWAI = window.PEGAWAI || [];
       const normalized = normalizeRemoteAttendanceRecord(remote);
       if (!normalized.date || !normalized.scope) return;
 
-      const key = attendanceKey(scopedDateKey(normalized.date, normalized.scope));
-      const existing = parseJson(storageGet(key), null);
+      const key = scopedDateKey(normalized.date, normalized.scope);
+      const existing = dbCache.attendance[key];
       const existingUpdatedAt = existing?.updatedAt || existing?.createdAt || "";
       if (!existing || shouldReplaceLocalByRemote(existingUpdatedAt, normalized.updatedAt)) {
-        storageSet(key, JSON.stringify(normalized));
+        dbCache.attendance[key] = normalized;
         changed = true;
       }
     });
@@ -352,14 +348,16 @@ window.PEGAWAI = window.PEGAWAI || [];
       const normalized = normalizeRemoteReport(remote);
       if (!normalized.date || !normalized.scope) return;
 
-      const key = reportKey(scopedDateKey(normalized.date, normalized.scope));
-      const existing = parseJson(storageGet(key), null);
+      const key = scopedDateKey(normalized.date, normalized.scope);
+      const existing = dbCache.reports[key];
       const existingUpdatedAt = existing?.updatedAt || existing?.savedAt || "";
       if (!existing || shouldReplaceLocalByRemote(existingUpdatedAt, normalized.updatedAt)) {
-        storageSet(key, JSON.stringify(normalized));
+        dbCache.reports[key] = normalized;
         changed = true;
       }
     });
+    // Rebuild allReports from cache
+    dbCache.allReports = Object.entries(dbCache.reports).map(([k, v]) => ({ ...v }));
     return changed;
   }
 
@@ -485,7 +483,7 @@ window.PEGAWAI = window.PEGAWAI || [];
     if (tab === "pegawai") renderPegawai();
     if (tab === "history") {
       renderHistory();
-      void hydrateScopedDataFromSupabase(state.currentDate, { silent: true });
+      void hydrateScopedDataFromSupabase(state.currentDate, { silent: true }).then(() => renderHistory());
     }
   }
 
@@ -882,9 +880,10 @@ window.PEGAWAI = window.PEGAWAI || [];
       .join("");
   }
 
-  function openReportDate(date) {
+  async function openReportDate(date) {
     state.currentDate = date;
     dom.attendanceDate.value = date;
+    await hydrateScopedDataFromSupabase(date, { silent: true });
     loadCurrentAttendance();
     switchTab("daily");
     renderAll();
@@ -1169,20 +1168,11 @@ window.PEGAWAI = window.PEGAWAI || [];
     return `${date}__${scopeKey(scope)}`;
   }
 
-  function parseJson(value, fallback = null) {
-    try {
-      return value ? JSON.parse(value) : fallback;
-    } catch (error) {
-      return fallback;
-    }
-  }
-
   function readScopedAttendance(date) {
     return readAttendanceForScope(date, currentScope());
   }
 
   async function saveScopedAttendance(date, record) {
-    const key = attendanceKey(scopedDateKey(date, currentScope()));
     const nextRecord = {
       ...record,
       date,
@@ -1191,7 +1181,7 @@ window.PEGAWAI = window.PEGAWAI || [];
       updatedAt: new Date().toISOString()
     };
 
-    // Save to server first
+    // Save to server
     if (isSupabaseConfigured()) {
       try {
         const result = await getSupabaseSync().upsertAttendance(nextRecord);
@@ -1205,8 +1195,9 @@ window.PEGAWAI = window.PEGAWAI || [];
       }
     }
 
-    // Cache to localStorage after successful server write
-    storageSet(key, JSON.stringify(nextRecord));
+    // Update in-memory cache
+    const key = scopedDateKey(date, currentScope());
+    dbCache.attendance[key] = nextRecord;
     state.attendanceRecord = nextRecord;
     return true;
   }
@@ -1220,59 +1211,29 @@ window.PEGAWAI = window.PEGAWAI || [];
   }
 
   function readAttendanceForScope(date, scope) {
-    const scopedRecord = readExactAttendanceForScope(date, scope);
-    if (scopedRecord) return scopedRecord;
-
-    const legacyRecord = parseJson(storageGet(attendanceKey(date)), null);
-    if (!legacyRecord) return null;
-    return {
-      ...legacyRecord,
-      scope: legacyRecord.scope || "ALL"
-    };
+    return readExactAttendanceForScope(date, scope);
   }
 
   function readReportForScope(date, scope) {
-    const scopedReport = readExactReportForScope(date, scope);
-    if (scopedReport) return scopedReport;
-
-    const legacyKey = reportKey(date);
-    const legacyReport = parseJson(storageGet(legacyKey), null);
-    if (!legacyReport) return null;
-
-    const legacyScope = legacyReport.scope || inferReportScope(legacyReport, legacyKey);
-    if (scope === "ALL" && legacyScope !== "ALL") return null;
-    if (scope !== "ALL" && legacyScope !== scope && legacyScope !== "ALL") return null;
-
-    return {
-      ...legacyReport,
-      scope: legacyScope
-    };
+    return readExactReportForScope(date, scope);
   }
 
   function readExactAttendanceForScope(date, scope) {
-    const key = attendanceKey(scopedDateKey(date, scope));
-    return parseJson(storageGet(key), null);
+    const key = scopedDateKey(date, scope);
+    return dbCache.attendance[key] || null;
   }
 
   function readExactReportForScope(date, scope) {
-    const key = reportKey(scopedDateKey(date, scope));
-    return parseJson(storageGet(key), null);
+    const key = scopedDateKey(date, scope);
+    return dbCache.reports[key] || null;
   }
 
   function hasAllModeData(date) {
-    return !!readAttendanceForScope(date, "ALL") || !!readReportForScope(date, "ALL");
+    return !!readExactAttendanceForScope(date, "ALL") || !!readExactReportForScope(date, "ALL");
   }
 
   function hasAnyFieldModeData(date) {
-    return ALL_BIDANGS.some((scope) => readExactAttendanceForScope(date, scope) || readExactReportForScope(date, scope)) || hasLegacyFieldReport(date);
-  }
-
-  function hasLegacyFieldReport(date) {
-    const legacyKey = reportKey(date);
-    const legacyReport = parseJson(storageGet(legacyKey), null);
-    if (!legacyReport) return false;
-    const legacyScope = legacyReport.scope || inferReportScope(legacyReport, legacyKey);
-    return legacyScope !== "ALL";
+    return ALL_BIDANGS.some((scope) => readExactAttendanceForScope(date, scope) || readExactReportForScope(date, scope));
   }
 
   function lockMessage() {
@@ -1298,7 +1259,6 @@ window.PEGAWAI = window.PEGAWAI || [];
   }
 
   async function saveScopedReport(date, report) {
-    const key = reportKey(scopedDateKey(date, currentScope()));
     const nextReport = {
       ...report,
       date,
@@ -1307,7 +1267,7 @@ window.PEGAWAI = window.PEGAWAI || [];
       updatedAt: new Date().toISOString()
     };
 
-    // Save to server first
+    // Save to server
     if (isSupabaseConfigured()) {
       try {
         const result = await getSupabaseSync().upsertReport(nextReport);
@@ -1321,15 +1281,17 @@ window.PEGAWAI = window.PEGAWAI || [];
       }
     }
 
-    // Cache to localStorage after successful server write
-    storageSet(key, JSON.stringify(nextReport));
+    // Update in-memory cache
+    const key = scopedDateKey(date, currentScope());
+    dbCache.reports[key] = nextReport;
+    dbCache.allReports = Object.entries(dbCache.reports).map(([, v]) => ({ ...v }));
     return true;
   }
 
   async function deleteScopedDateData(date) {
     const scope = currentScope();
 
-    // Delete from server first
+    // Delete from server
     if (isSupabaseConfigured()) {
       try {
         const result = await getSupabaseSync().deleteScopeDateData(date, scope);
@@ -1343,74 +1305,33 @@ window.PEGAWAI = window.PEGAWAI || [];
       }
     }
 
-    // Remove from localStorage cache
-    const attendanceStorageKey = attendanceKey(scopedDateKey(date, currentScope()));
-    const reportStorageKey = reportKey(scopedDateKey(date, currentScope()));
-    storageRemove(attendanceStorageKey);
-    storageRemove(reportStorageKey);
-
-    if (hasOwnLegacyAttendance(date)) storageRemove(attendanceKey(date));
-    if (hasOwnLegacyReport(date)) storageRemove(reportKey(date));
+    // Remove from in-memory cache
+    const key = scopedDateKey(date, scope);
+    delete dbCache.attendance[key];
+    delete dbCache.reports[key];
+    dbCache.allReports = Object.entries(dbCache.reports).map(([, v]) => ({ ...v }));
   }
 
   function hasOwnScopedData(date) {
     return (
       !!readExactAttendanceForScope(date, currentScope()) ||
-      !!readExactReportForScope(date, currentScope()) ||
-      hasOwnLegacyAttendance(date) ||
-      hasOwnLegacyReport(date)
+      !!readExactReportForScope(date, currentScope())
     );
   }
 
-  function hasOwnLegacyAttendance(date) {
-    const record = parseJson(storageGet(attendanceKey(date)), null);
-    if (!record) return false;
-    if (record.scope) return record.scope === currentScope();
-    return currentScope() === "ALL";
-  }
-
-  function hasOwnLegacyReport(date) {
-    const legacyKey = reportKey(date);
-    const report = parseJson(storageGet(legacyKey), null);
-    if (!report) return false;
-    const legacyScope = report.scope || inferReportScope(report, legacyKey);
-    return legacyScope === currentScope();
-  }
-
   function getScopedSavedReports() {
-    const scopedReports = [];
-    const prefix = "laporan_";
     const activeScope = currentScope();
+    const filtered = dbCache.allReports.filter((report) => {
+      const reportScope = report.scope || "ALL";
+      if (activeScope !== "ALL" && reportScope !== activeScope && reportScope !== "ALL") return false;
+      return true;
+    });
 
-    for (let index = 0; index < storageLength(); index += 1) {
-      const key = storageKey(index);
-      if (!key || !key.startsWith(prefix)) continue;
-      const report = parseJson(storageGet(key), null);
-      if (!report) continue;
-
-      const reportScope = report.scope || inferReportScope(report, key);
-      if (activeScope !== "ALL" && reportScope !== activeScope && reportScope !== "ALL") continue;
-
-      scopedReports.push({
-        ...report,
-        scope: reportScope
-      });
-    }
-
-    return scopedReports.sort((a, b) => {
+    return filtered.sort((a, b) => {
       const byDate = String(b.date).localeCompare(String(a.date));
       if (byDate !== 0) return byDate;
       return String(a.scope).localeCompare(String(b.scope));
     });
-  }
-
-  function inferReportScope(report, key) {
-    const scopeFromKey = key.includes("__") ? key.split("__").pop().replaceAll("_", " ") : "";
-    if (scopeFromKey) return scopeFromKey;
-
-    const bidangSet = new Set((report.rows || []).map((row) => row.bidang).filter(Boolean));
-    if (bidangSet.size === 1) return [...bidangSet][0];
-    return "ALL";
   }
 
   function buildScopedMonthlyRows(monthString) {
@@ -1508,7 +1429,8 @@ window.PEGAWAI = window.PEGAWAI || [];
 
   function readSessionUser() {
     const value = sessionGet(SESSION_USER_KEY);
-    const parsed = parseJson(value, null);
+    let parsed = null;
+    try { parsed = value ? JSON.parse(value) : null; } catch { /* ignore */ }
     if (!parsed) return null;
     const account = ACCOUNTS.find((item) => item.scope === parsed.scope && item.username === parsed.username);
     return account ? parsed : null;
